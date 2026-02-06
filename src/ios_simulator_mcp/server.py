@@ -53,6 +53,7 @@ simulator_manager = SimulatorManager()
 wda_clients: dict[str, WDAClient] = {}
 _last_ui_elements: dict[str, list] = {}
 _recording_paths: dict[str, Path] = {}
+_dashboard_wrapped_tools: set[str] = set()
 
 # WDA host configuration
 WDA_HOST = os.environ.get("WDA_HOST", "127.0.0.1")
@@ -142,18 +143,26 @@ async def lifespan(mcp: FastMCP):
 
     # Wrap all registered tools with dashboard tracking
     # This makes MCP protocol calls appear in the dashboard
-    for tool_name, tool in mcp._tool_manager._tools.items():
+    tools = await mcp.get_tools()
+    wrapped_count = 0
+    for tool_name, tool in tools.items():
+        if tool_name in _dashboard_wrapped_tools:
+            continue
+
         original_fn = tool.fn
         tool.fn = _wrap_tool_with_tracking(tool_name, original_fn)
-    logger.info(f"Wrapped {len(mcp._tool_manager._tools)} tools with dashboard tracking")
+        _dashboard_wrapped_tools.add(tool_name)
+        wrapped_count += 1
+    logger.info(f"Wrapped {wrapped_count} tools with dashboard tracking")
 
     # Wire up tool executor for dashboard quick actions
     async def execute_tool_from_dashboard(name: str, args: dict[str, Any]) -> str:
         """Execute a tool from dashboard quick actions."""
-        # Tools are already wrapped, so just call them directly
-        tool = mcp._tool_manager._tools.get(name)
-        if not tool:
-            raise ValueError(f"Unknown tool: {name}")
+        # Tools are already wrapped, so just call the function directly.
+        try:
+            tool = await mcp.get_tool(name)
+        except Exception as exc:
+            raise ValueError(f"Unknown tool: {name}") from exc
         return await tool.fn(**args)
 
     dashboard_state.tool_executor = execute_tool_from_dashboard
@@ -1196,7 +1205,19 @@ def get_automation_guide() -> str:
 # Backward-compatible exports for existing imports:
 # `from ios_simulator_mcp.server import server, TOOLS`
 server = mcp
-TOOLS = list(mcp._tool_manager._tools.values())
+
+
+def _snapshot_tools_for_compat() -> list[Any]:
+    """Best-effort sync snapshot for legacy imports that expect TOOLS at module scope."""
+    try:
+        asyncio.get_running_loop()
+        return []
+    except RuntimeError:
+        tools = asyncio.run(mcp.get_tools())
+        return list(tools.values())
+
+
+TOOLS = _snapshot_tools_for_compat()
 
 
 # === Main Entry Point ===
