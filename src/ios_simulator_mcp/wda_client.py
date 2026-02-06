@@ -690,3 +690,148 @@ class WDAClient:
         if b64_content:
             return base64.b64decode(b64_content).decode()
         return ""
+
+    # === Keyboard ===
+
+    async def dismiss_keyboard(self) -> None:
+        """Dismiss the on-screen keyboard."""
+        session_id = await self._ensure_session()
+        await self._request(
+            "POST",
+            f"/session/{session_id}/wda/keyboard/dismiss",
+            json={},
+        )
+
+    # === Device Appearance ===
+
+    async def set_appearance(self, appearance: str) -> None:
+        """Set device appearance (dark/light mode).
+
+        Args:
+            appearance: 'dark' or 'light'
+        """
+        session_id = await self._ensure_session()
+        await self._request(
+            "POST",
+            f"/session/{session_id}/wda/device/appearance",
+            json={"name": appearance},
+        )
+
+    async def get_appearance(self) -> str:
+        """Get current device appearance."""
+        session_id = await self._ensure_session()
+        data = await self._request(
+            "GET",
+            f"/session/{session_id}/wda/device/appearance",
+        )
+        return data.get("value", "unknown")
+
+    # === Biometrics (Touch ID / Face ID) ===
+
+    async def simulate_biometrics(self, match: bool = True) -> None:
+        """Simulate Touch ID / Face ID authentication.
+
+        Args:
+            match: True to simulate successful auth, False to simulate failure
+        """
+        session_id = await self._ensure_session()
+        await self._request(
+            "POST",
+            f"/session/{session_id}/wda/touch_id",
+            json={"match": match},
+        )
+
+    # === Screen Recording ===
+
+    async def start_recording(
+        self,
+        video_type: str = "libx264",
+        video_fps: int = 24,
+        video_scale: str | None = None,
+        video_quality: str = "medium",
+    ) -> None:
+        """Start screen recording.
+
+        Args:
+            video_type: Video codec ('libx264', 'mjpeg')
+            video_fps: Frames per second (1-60)
+            video_scale: Scale factor (e.g., '320:240', '50%')
+            video_quality: Quality preset ('low', 'medium', 'high', 'photo')
+        """
+        session_id = await self._ensure_session()
+        payload: dict[str, Any] = {
+            "videoType": video_type,
+            "videoFps": video_fps,
+            "videoQuality": video_quality,
+        }
+        if video_scale:
+            payload["videoScale"] = video_scale
+
+        await self._request(
+            "POST",
+            f"/session/{session_id}/wda/video/start",
+            json=payload,
+        )
+
+    async def stop_recording(self) -> bytes:
+        """Stop screen recording and return the video data.
+
+        Returns:
+            Video file bytes (typically mp4)
+        """
+        session_id = await self._ensure_session()
+        data = await self._request(
+            "POST",
+            f"/session/{session_id}/wda/video/stop",
+            json={},
+            timeout=120.0,  # Recording can take time to finalize
+        )
+        b64_data = data.get("value", "")
+        if not b64_data:
+            raise WDAError("No video data returned")
+        return base64.b64decode(b64_data)
+
+    async def get_recording_status(self) -> bool:
+        """Check if screen recording is active.
+
+        Returns:
+            True if recording is active, False otherwise
+        """
+        session_id = await self._ensure_session()
+        try:
+            data = await self._request(
+                "GET",
+                f"/session/{session_id}/wda/video",
+            )
+            return bool(data.get("value"))
+        except WDAError:
+            return False
+
+    # === Pinch Gesture ===
+
+    async def pinch(
+        self,
+        x: int,
+        y: int,
+        scale: float,
+        velocity: float = 1.0,
+    ) -> None:
+        """Perform a pinch gesture at coordinates.
+
+        Args:
+            x: Center X coordinate
+            y: Center Y coordinate
+            scale: Scale factor (< 1.0 for pinch in/zoom out, > 1.0 for pinch out/zoom in)
+            velocity: Pinch velocity in scale factor per second (default: 1.0)
+        """
+        session_id = await self._ensure_session()
+        await self._request(
+            "POST",
+            f"/session/{session_id}/wda/pinch",
+            json={
+                "x": x,
+                "y": y,
+                "scale": scale,
+                "velocity": velocity,
+            },
+        )

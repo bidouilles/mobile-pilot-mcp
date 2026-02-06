@@ -897,6 +897,141 @@ TOOLS = [
             "required": [],
         },
     ),
+    # === New High-Impact Tools ===
+    Tool(
+        name="dismiss_keyboard",
+        description="Dismiss the on-screen keyboard if visible",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "type": "string",
+                    "description": "Simulator UDID",
+                },
+            },
+            "required": ["device_id"],
+        },
+    ),
+    Tool(
+        name="set_appearance",
+        description="Set device appearance (dark mode or light mode)",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "type": "string",
+                    "description": "Simulator UDID",
+                },
+                "appearance": {
+                    "type": "string",
+                    "enum": ["dark", "light"],
+                    "description": "Appearance mode to set",
+                },
+            },
+            "required": ["device_id", "appearance"],
+        },
+    ),
+    Tool(
+        name="get_appearance",
+        description="Get current device appearance (dark/light mode)",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "type": "string",
+                    "description": "Simulator UDID",
+                },
+            },
+            "required": ["device_id"],
+        },
+    ),
+    Tool(
+        name="simulate_biometrics",
+        description="Simulate Touch ID or Face ID authentication (success or failure)",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "type": "string",
+                    "description": "Simulator UDID",
+                },
+                "match": {
+                    "type": "boolean",
+                    "description": "True for successful authentication, False for failure (default: true)",
+                },
+            },
+            "required": ["device_id"],
+        },
+    ),
+    Tool(
+        name="start_recording",
+        description="Start screen recording. Use stop_recording to save the video.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "type": "string",
+                    "description": "Simulator UDID",
+                },
+                "fps": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 60,
+                    "description": "Frames per second (default: 24)",
+                },
+                "quality": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high", "photo"],
+                    "description": "Video quality preset (default: medium)",
+                },
+            },
+            "required": ["device_id"],
+        },
+    ),
+    Tool(
+        name="stop_recording",
+        description="Stop screen recording and save the video file",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "type": "string",
+                    "description": "Simulator UDID",
+                },
+            },
+            "required": ["device_id"],
+        },
+    ),
+    Tool(
+        name="pinch",
+        description="Perform a pinch gesture (zoom in/out) at coordinates",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "type": "string",
+                    "description": "Simulator UDID",
+                },
+                "x": {
+                    "type": "integer",
+                    "description": "Center X coordinate for pinch",
+                },
+                "y": {
+                    "type": "integer",
+                    "description": "Center Y coordinate for pinch",
+                },
+                "scale": {
+                    "type": "number",
+                    "description": "Scale factor: <1.0 to zoom out (pinch in), >1.0 to zoom in (pinch out). E.g., 0.5 zooms out, 2.0 zooms in",
+                },
+                "velocity": {
+                    "type": "number",
+                    "description": "Pinch velocity in scale factor per second (default: 1.0)",
+                },
+            },
+            "required": ["device_id", "x", "y", "scale"],
+        },
+    ),
 ]
 
 
@@ -1526,6 +1661,106 @@ async def handle_tool(name: str, args: dict[str, Any]) -> str:
         else:
             return "Session reset, but WDA is not responding. Please restart WDA."
 
+    # === Keyboard ===
+
+    elif name == "dismiss_keyboard":
+        device_id = args.get("device_id")
+        if not device_id:
+            raise ValueError("device_id is required")
+
+        client = get_wda_client(device_id)
+        await client.dismiss_keyboard()
+        return "Keyboard dismissed"
+
+    # === Appearance (Dark/Light Mode) ===
+
+    elif name == "set_appearance":
+        device_id = args.get("device_id")
+        appearance = args.get("appearance")
+        if not device_id:
+            raise ValueError("device_id is required")
+        if not appearance:
+            raise ValueError("appearance is required ('dark' or 'light')")
+
+        client = get_wda_client(device_id)
+        await client.set_appearance(appearance)
+        return f"Appearance set to: {appearance}"
+
+    elif name == "get_appearance":
+        device_id = args.get("device_id")
+        if not device_id:
+            raise ValueError("device_id is required")
+
+        client = get_wda_client(device_id)
+        appearance = await client.get_appearance()
+        return f"Current appearance: {appearance}"
+
+    # === Biometrics (Touch ID / Face ID) ===
+
+    elif name == "simulate_biometrics":
+        device_id = args.get("device_id")
+        match = args.get("match", True)
+        if not device_id:
+            raise ValueError("device_id is required")
+
+        client = get_wda_client(device_id)
+        await client.simulate_biometrics(match=match)
+        result = "successful" if match else "failed"
+        return f"Simulated biometric authentication: {result}"
+
+    # === Screen Recording ===
+
+    elif name == "start_recording":
+        device_id = args.get("device_id")
+        fps = args.get("fps", 24)
+        quality = args.get("quality", "medium")
+        if not device_id:
+            raise ValueError("device_id is required")
+
+        client = get_wda_client(device_id)
+        await client.start_recording(video_fps=fps, video_quality=quality)
+        return f"Screen recording started (fps={fps}, quality={quality})"
+
+    elif name == "stop_recording":
+        device_id = args.get("device_id")
+        if not device_id:
+            raise ValueError("device_id is required")
+
+        client = get_wda_client(device_id)
+        video_data = await client.stop_recording()
+
+        # Save video file
+        ensure_screenshot_dir()
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        video_dir = SCREENSHOT_DIR.parent / "recordings"
+        video_dir.mkdir(parents=True, exist_ok=True)
+        filepath = video_dir / f"recording-{timestamp}.mp4"
+        filepath.write_bytes(video_data)
+
+        file_size = len(video_data) / 1024  # KB
+        return f"Screen recording saved: {filepath}\nSize: {file_size:.1f}KB"
+
+    # === Pinch Gesture ===
+
+    elif name == "pinch":
+        device_id = args.get("device_id")
+        x = args.get("x")
+        y = args.get("y")
+        scale = args.get("scale")
+        velocity = args.get("velocity", 1.0)
+        if not device_id:
+            raise ValueError("device_id is required")
+        if x is None or y is None:
+            raise ValueError("x and y coordinates are required")
+        if scale is None:
+            raise ValueError("scale is required")
+
+        client = get_wda_client(device_id)
+        await client.pinch(x, y, scale, velocity)
+
+        action = "zoom in" if scale > 1.0 else "zoom out"
+        return f"Pinch gesture at ({x}, {y}) with scale {scale} ({action})"
+
     else:
         return f"Unknown tool: {name}"
 
@@ -1581,6 +1816,13 @@ API_REFERENCE = """# iOS Simulator MCP API Reference
 | get_window_size | Get screen dimensions |
 | set_status_bar | Override status bar appearance |
 | clear_status_bar | Clear status bar overrides |
+| dismiss_keyboard | Dismiss on-screen keyboard |
+| set_appearance | Set dark/light mode |
+| get_appearance | Get current dark/light mode |
+| simulate_biometrics | Simulate Touch ID/Face ID |
+| start_recording | Start screen recording |
+| stop_recording | Stop recording and save video |
+| pinch | Pinch gesture (zoom in/out) |
 
 ## Dart MCP Integration
 

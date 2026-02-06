@@ -182,6 +182,13 @@ Add to `~/.claude/settings.json` or project `.claude/settings.json`:
 | `get_window_size` | Get screen dimensions |
 | `set_status_bar` | Override status bar (time, battery, network) for consistent screenshots |
 | `clear_status_bar` | Clear status bar overrides |
+| `dismiss_keyboard` | Dismiss the on-screen keyboard |
+| `set_appearance` | Set dark mode or light mode |
+| `get_appearance` | Get current appearance (dark/light) |
+| `simulate_biometrics` | Simulate Touch ID / Face ID authentication |
+| `start_recording` | Start screen recording |
+| `stop_recording` | Stop recording and save video file |
+| `pinch` | Pinch gesture for zoom in/out |
 
 ### Alerts
 
@@ -358,6 +365,71 @@ clear_status_bar device_id="..."
 | `cellular_mode` | notSupported, searching, failed, active | Cellular state |
 | `cellular_bars` | 0-4 | Cellular signal strength |
 | `operator_name` | string | Carrier name (empty to hide) |
+
+### Dark Mode / Light Mode
+
+```
+# Switch to dark mode
+set_appearance device_id="..." appearance="dark"
+
+# Switch to light mode
+set_appearance device_id="..." appearance="light"
+
+# Check current mode
+get_appearance device_id="..."
+```
+
+### Screen Recording
+
+```
+# Start recording
+start_recording device_id="..."
+
+# With options
+start_recording device_id="..." fps=30 quality="high"
+
+# Stop and save (returns file path)
+stop_recording device_id="..."
+# Output: Screen recording saved: /tmp/ios-simulator-mcp/recordings/recording-20260206-143022.mp4
+```
+
+**Recording options:**
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `fps` | 24 | Frames per second (1-60) |
+| `quality` | medium | Quality: `low`, `medium`, `high`, `photo` |
+
+### Biometric Authentication
+
+Test Touch ID / Face ID flows:
+
+```
+# Simulate successful authentication
+simulate_biometrics device_id="..."
+
+# Simulate failed authentication
+simulate_biometrics device_id="..." match=false
+```
+
+### Pinch/Zoom Gesture
+
+```
+# Zoom in (pinch out) - scale > 1.0
+pinch device_id="..." x=200 y=400 scale=2.0
+
+# Zoom out (pinch in) - scale < 1.0
+pinch device_id="..." x=200 y=400 scale=0.5
+
+# With velocity control
+pinch device_id="..." x=200 y=400 scale=2.0 velocity=0.5
+```
+
+### Dismiss Keyboard
+
+```
+# After typing, dismiss the keyboard
+dismiss_keyboard device_id="..."
+```
 
 ## Predicate Fields
 

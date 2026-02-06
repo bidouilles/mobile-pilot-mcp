@@ -108,6 +108,13 @@ python scripts/test_install.py
 - `POST /session/{id}/wda/dragfromtoforduration` - Swipe
 - `POST /session/{id}/wda/apps/launch` - Launch app
 - `POST /session/{id}/wda/pressButton` - Hardware button
+- `POST /session/{id}/wda/keyboard/dismiss` - Dismiss keyboard
+- `POST /session/{id}/wda/device/appearance` - Set dark/light mode
+- `GET /session/{id}/wda/device/appearance` - Get current appearance
+- `POST /session/{id}/wda/touch_id` - Simulate biometrics
+- `POST /session/{id}/wda/video/start` - Start screen recording
+- `POST /session/{id}/wda/video/stop` - Stop recording
+- `POST /session/{id}/wda/pinch` - Pinch gesture
 
 ## Error Handling
 
@@ -190,6 +197,56 @@ Screenshots are automatically optimized to reduce context usage:
 - `format=png`: Need pixel-perfect accuracy, OCR on text
 - `scale=0.25`: Quick state checks, thumbnails
 
+## Advanced Features
+
+### Dark Mode Testing
+
+Switch between dark and light mode for UI testing:
+```
+set_appearance device_id="..." appearance="dark"
+set_appearance device_id="..." appearance="light"
+get_appearance device_id="..."
+```
+
+### Screen Recording
+
+Capture video of UI interactions:
+```
+start_recording device_id="..." fps=24 quality="medium"
+# ... perform actions ...
+stop_recording device_id="..."
+# Returns: /tmp/ios-simulator-mcp/recordings/recording-YYYYMMDD-HHMMSS.mp4
+```
+
+### Biometric Simulation
+
+Test Touch ID / Face ID authentication flows:
+```
+# Trigger successful auth
+simulate_biometrics device_id="..." match=true
+
+# Trigger failed auth
+simulate_biometrics device_id="..." match=false
+```
+
+### Pinch/Zoom Gestures
+
+```
+# Zoom in (scale > 1.0)
+pinch device_id="..." x=200 y=400 scale=2.0
+
+# Zoom out (scale < 1.0)
+pinch device_id="..." x=200 y=400 scale=0.5
+```
+
+### Keyboard Management
+
+```
+# Dismiss keyboard after typing
+type_text device_id="..." text="hello"
+dismiss_keyboard device_id="..."
+```
+
 ## Dart MCP Integration
 
 The `discover_dtd_uris` tool helps discover running Dart Tooling Daemon (DTD) URIs on the local machine. These URIs are needed by the Dart MCP server for Flutter debugging features like hot reload, widget inspection, and runtime error reporting.
@@ -242,6 +299,11 @@ This enables:
 8. **Screenshots saved to** `/tmp/ios-simulator-mcp/screenshots/`
 9. **Use `set_status_bar`** for consistent screenshots (time="9:41", battery_level=100)
 10. **Use `discover_dtd_uris`** to find DTD URIs for Dart MCP integration
+11. **Use `dismiss_keyboard`** after typing to clear the keyboard
+12. **Use `set_appearance`** to test dark/light mode UI
+13. **Use `start_recording`/`stop_recording`** to capture interaction videos
+14. **Use `simulate_biometrics`** to test Touch ID/Face ID flows
+15. **Use `pinch`** for map/image zoom testing (scale > 1 = zoom in, < 1 = zoom out)
 
 ## Dependencies
 
@@ -252,5 +314,6 @@ This enables:
 ## File Locations
 
 - Screenshots: `/tmp/ios-simulator-mcp/screenshots/`
+- Recordings: `/tmp/ios-simulator-mcp/recordings/`
 - WDA Project: `../WebDriverAgent/`
 - Simulator data: `~/Library/Developer/CoreSimulator/Devices/<UDID>/`
