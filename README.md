@@ -385,19 +385,18 @@ get_appearance device_id="..."
 # Start recording
 start_recording device_id="..."
 
-# With options
-start_recording device_id="..." fps=30 quality="high"
+# With specific codec
+start_recording device_id="..." codec="h264"
 
 # Stop and save (returns file path)
 stop_recording device_id="..."
-# Output: Screen recording saved: /tmp/ios-simulator-mcp/recordings/recording-20260206-143022.mp4
+# Output: Screen recording saved: /tmp/ios-simulator-mcp/recordings/recording-20260206-143022.mov
 ```
 
 **Recording options:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `fps` | 24 | Frames per second (1-60) |
-| `quality` | medium | Quality: `low`, `medium`, `high`, `photo` |
+| `codec` | hevc | Video codec: `hevc` (smaller files) or `h264` (more compatible) |
 
 ### Biometric Authentication
 

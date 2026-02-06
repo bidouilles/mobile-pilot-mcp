@@ -464,6 +464,70 @@ class SimulatorManager:
         """Clear status bar overrides."""
         await self._run_simctl("status_bar", udid, "clear", timeout=10.0)
 
+    # === Screen Recording ===
+
+    _recording_processes: dict[str, asyncio.subprocess.Process] = {}
+
+    async def start_recording(
+        self,
+        udid: str,
+        output_path: str | Path,
+        codec: str = "hevc",
+    ) -> None:
+        """Start screen recording using simctl.
+
+        Args:
+            udid: Simulator UDID
+            output_path: Path to save the video file (.mov)
+            codec: Video codec ('h264' or 'hevc', default: hevc)
+        """
+        if udid in self._recording_processes:
+            raise SimulatorError(f"Recording already in progress for {udid}")
+
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        cmd = ["xcrun", "simctl", "io", udid, "recordVideo", f"--codec={codec}", str(output_path)]
+        logger.debug(f"Starting recording: {' '.join(cmd)}")
+
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        self._recording_processes[udid] = proc
+        logger.info(f"Recording started for {udid}: {output_path}")
+
+    async def stop_recording(self, udid: str) -> bool:
+        """Stop screen recording.
+
+        Args:
+            udid: Simulator UDID
+
+        Returns:
+            True if recording was stopped, False if no recording was active
+        """
+        proc = self._recording_processes.pop(udid, None)
+        if not proc:
+            return False
+
+        # Send SIGINT to gracefully stop recording
+        proc.send_signal(2)  # SIGINT
+
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=30.0)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+
+        logger.info(f"Recording stopped for {udid}")
+        return True
+
+    def is_recording(self, udid: str) -> bool:
+        """Check if recording is in progress for a device."""
+        proc = self._recording_processes.get(udid)
+        return proc is not None and proc.returncode is None
+
 
 # Global instance
 simulator_manager = SimulatorManager()

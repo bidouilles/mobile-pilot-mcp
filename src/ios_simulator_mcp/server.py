@@ -965,7 +965,7 @@ TOOLS = [
     ),
     Tool(
         name="start_recording",
-        description="Start screen recording. Use stop_recording to save the video.",
+        description="Start screen recording. Use stop_recording to save the video (.mov file).",
         inputSchema={
             "type": "object",
             "properties": {
@@ -973,16 +973,10 @@ TOOLS = [
                     "type": "string",
                     "description": "Simulator UDID",
                 },
-                "fps": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 60,
-                    "description": "Frames per second (default: 24)",
-                },
-                "quality": {
+                "codec": {
                     "type": "string",
-                    "enum": ["low", "medium", "high", "photo"],
-                    "description": "Video quality preset (default: medium)",
+                    "enum": ["hevc", "h264"],
+                    "description": "Video codec (default: hevc, more efficient)",
                 },
             },
             "required": ["device_id"],
@@ -1712,33 +1706,45 @@ async def handle_tool(name: str, args: dict[str, Any]) -> str:
 
     elif name == "start_recording":
         device_id = args.get("device_id")
-        fps = args.get("fps", 24)
-        quality = args.get("quality", "medium")
+        codec = args.get("codec", "hevc")
         if not device_id:
             raise ValueError("device_id is required")
 
-        client = get_wda_client(device_id)
-        await client.start_recording(video_fps=fps, video_quality=quality)
-        return f"Screen recording started (fps={fps}, quality={quality})"
+        # Check if already recording
+        if simulator_manager.is_recording(device_id):
+            return "Recording already in progress. Use stop_recording first."
+
+        # Generate output path
+        ensure_screenshot_dir()
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        video_dir = SCREENSHOT_DIR.parent / "recordings"
+        video_dir.mkdir(parents=True, exist_ok=True)
+        filepath = video_dir / f"recording-{timestamp}.mov"
+
+        # Store filepath for later retrieval
+        _recording_paths[device_id] = filepath
+
+        await simulator_manager.start_recording(device_id, filepath, codec=codec)
+        return f"Screen recording started (codec={codec})\nWill save to: {filepath}"
 
     elif name == "stop_recording":
         device_id = args.get("device_id")
         if not device_id:
             raise ValueError("device_id is required")
 
-        client = get_wda_client(device_id)
-        video_data = await client.stop_recording()
+        if not simulator_manager.is_recording(device_id):
+            return "No recording in progress"
 
-        # Save video file
-        ensure_screenshot_dir()
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        video_dir = SCREENSHOT_DIR.parent / "recordings"
-        video_dir.mkdir(parents=True, exist_ok=True)
-        filepath = video_dir / f"recording-{timestamp}.mp4"
-        filepath.write_bytes(video_data)
+        filepath = _recording_paths.pop(device_id, None)
+        stopped = await simulator_manager.stop_recording(device_id)
 
-        file_size = len(video_data) / 1024  # KB
-        return f"Screen recording saved: {filepath}\nSize: {file_size:.1f}KB"
+        if stopped and filepath and filepath.exists():
+            file_size = filepath.stat().st_size / 1024  # KB
+            return f"Screen recording saved: {filepath}\nSize: {file_size:.1f}KB"
+        elif stopped:
+            return "Recording stopped but file may still be processing"
+        else:
+            return "No recording was in progress"
 
     # === Pinch Gesture ===
 
@@ -1767,6 +1773,9 @@ async def handle_tool(name: str, args: dict[str, Any]) -> str:
 
 # Global state for UI elements (simplified - use proper state management in production)
 _last_ui_elements: dict[str, list] = {}
+
+# Global state for recording file paths
+_recording_paths: dict[str, Path] = {}
 
 
 # === Resources ===

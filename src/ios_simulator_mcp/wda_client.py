@@ -742,55 +742,38 @@ class WDAClient:
             json={"match": match},
         )
 
-    # === Screen Recording ===
+    # === Screen Recording (Note: Use SimulatorManager for simctl-based recording) ===
 
-    async def start_recording(
-        self,
-        video_type: str = "libx264",
-        video_fps: int = 24,
-        video_scale: str | None = None,
-        video_quality: str = "medium",
-    ) -> None:
-        """Start screen recording.
+    async def start_recording_wda(self) -> dict[str, Any]:
+        """Start screen recording via WDA (returns metadata only, not video data).
 
-        Args:
-            video_type: Video codec ('libx264', 'mjpeg')
-            video_fps: Frames per second (1-60)
-            video_scale: Scale factor (e.g., '320:240', '50%')
-            video_quality: Quality preset ('low', 'medium', 'high', 'photo')
-        """
-        session_id = await self._ensure_session()
-        payload: dict[str, Any] = {
-            "videoType": video_type,
-            "videoFps": video_fps,
-            "videoQuality": video_quality,
-        }
-        if video_scale:
-            payload["videoScale"] = video_scale
-
-        await self._request(
-            "POST",
-            f"/session/{session_id}/wda/video/start",
-            json=payload,
-        )
-
-    async def stop_recording(self) -> bytes:
-        """Stop screen recording and return the video data.
+        Note: WDA recording doesn't return video data directly. For actual video
+        files, use SimulatorManager.start_recording() which uses simctl.
 
         Returns:
-            Video file bytes (typically mp4)
+            Recording metadata (uuid, startedAt, fps, codec)
+        """
+        session_id = await self._ensure_session()
+        data = await self._request(
+            "POST",
+            f"/session/{session_id}/wda/video/start",
+            json={},
+        )
+        return data.get("value", {})
+
+    async def stop_recording_wda(self) -> dict[str, Any]:
+        """Stop WDA screen recording (returns metadata only).
+
+        Returns:
+            Recording metadata
         """
         session_id = await self._ensure_session()
         data = await self._request(
             "POST",
             f"/session/{session_id}/wda/video/stop",
             json={},
-            timeout=120.0,  # Recording can take time to finalize
         )
-        b64_data = data.get("value", "")
-        if not b64_data:
-            raise WDAError("No video data returned")
-        return base64.b64decode(b64_data)
+        return data.get("value", {})
 
     async def get_recording_status(self) -> bool:
         """Check if screen recording is active.
