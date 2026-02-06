@@ -8,12 +8,12 @@ import logging
 import os
 import time
 import webbrowser
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from aiohttp import web, WSMsgType
+from aiohttp import WSMsgType, web
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,12 @@ class DashboardState:
 
         return call
 
-    def complete_tool_call(self, call: ToolCall, result: str | None = None, error: str | None = None):
+    def complete_tool_call(
+        self,
+        call: ToolCall,
+        result: str | None = None,
+        error: str | None = None,
+    ):
         """Mark a tool call as complete."""
         call.duration_ms = (time.time() - call.timestamp) * 1000
         if error:
@@ -269,12 +274,16 @@ def create_dashboard_app() -> web.Application:
     return app
 
 
-async def start_dashboard(port: int = DASHBOARD_PORT, auto_open: bool = DASHBOARD_AUTO_OPEN) -> web.AppRunner:
+async def start_dashboard(
+    port: int = DASHBOARD_PORT,
+    auto_open: bool = DASHBOARD_AUTO_OPEN,
+) -> web.AppRunner:
     """Start the dashboard server.
 
     Args:
         port: Port to run dashboard on
-        auto_open: Whether to automatically open browser (default: True, set DASHBOARD_AUTO_OPEN=false to disable)
+        auto_open: Whether to auto-open browser.
+            Set `DASHBOARD_AUTO_OPEN=false` to disable.
     """
     app = create_dashboard_app()
     runner = web.AppRunner(app)

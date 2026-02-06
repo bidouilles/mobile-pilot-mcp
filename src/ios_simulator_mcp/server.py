@@ -1265,22 +1265,9 @@ def get_automation_guide() -> str:
     return AUTOMATION_GUIDE
 
 
-# Backward-compatible exports for existing imports:
-# `from ios_simulator_mcp.server import server, TOOLS`
+# Backward-compatible export for existing imports:
+# `from ios_simulator_mcp.server import server`
 server = mcp
-
-
-def _snapshot_tools_for_compat() -> list[Any]:
-    """Best-effort sync snapshot for legacy imports that expect TOOLS at module scope."""
-    try:
-        asyncio.get_running_loop()
-        return []
-    except RuntimeError:
-        tools = asyncio.run(mcp.get_tools())
-        return list(tools.values())
-
-
-TOOLS = _snapshot_tools_for_compat()
 
 
 # === Main Entry Point ===

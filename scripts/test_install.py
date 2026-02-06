@@ -12,11 +12,11 @@ async def main():
     print("1. Testing imports...")
     try:
         from ios_simulator_mcp import __version__
-        from ios_simulator_mcp.server import server, TOOLS
+        from ios_simulator_mcp.server import mcp, server
         from ios_simulator_mcp.simulator import SimulatorManager
         from ios_simulator_mcp.wda_client import WDAClient
-        from ios_simulator_mcp.ui_tree import UITreeParser
         print(f"   ✓ All imports successful (version {__version__})")
+        print(f"   ✓ MCP export compatibility: {server is mcp}")
     except ImportError as e:
         print(f"   ✗ Import error: {e}")
         return 1
@@ -42,8 +42,13 @@ async def main():
         return 1
 
     # Test tool definitions
-    print(f"\n3. Testing tool definitions...")
-    print(f"   ✓ {len(TOOLS)} tools defined")
+    print("\n3. Testing tool definitions...")
+    try:
+        tools = await mcp.get_tools()
+        print(f"   ✓ {len(tools)} tools defined")
+    except Exception as e:
+        print(f"   ✗ Tool registry error: {e}")
+        return 1
 
     # Check WDA connectivity (if simulator is booted)
     if booted:

@@ -7,7 +7,7 @@ import json
 import logging
 import re
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -431,7 +431,8 @@ class SimulatorManager:
             time: Time string (e.g., "9:41")
             battery_level: Battery level 0-100
             battery_state: 'charging', 'charged', 'discharging'
-            data_network: 'hide', 'wifi', '3g', '4g', 'lte', 'lte-a', 'lte+', '5g', '5g+', '5g-uwb', '5g-uc'
+            data_network: 'hide', 'wifi', '3g', '4g', 'lte', 'lte-a', 'lte+',
+                '5g', '5g+', '5g-uwb', '5g-uc'
             wifi_mode: 'searching', 'failed', 'active'
             wifi_bars: 0-3
             cellular_mode: 'notSupported', 'searching', 'failed', 'active'

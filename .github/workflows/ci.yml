@@ -23,7 +23,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Lint
-        run: ruff check src/ios_simulator_mcp/server.py tests
+        run: ruff check .
 
       - name: Compile
         run: python -m compileall -q src

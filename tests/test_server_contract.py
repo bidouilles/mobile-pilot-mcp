@@ -5,10 +5,9 @@ import asyncio
 from ios_simulator_mcp import server as server_module
 
 
-def test_legacy_tools_snapshot_non_empty() -> None:
-    """Legacy TOOLS export should remain populated for compatibility imports."""
-    assert server_module.TOOLS
-    assert all(hasattr(tool, "name") for tool in server_module.TOOLS)
+def test_server_compat_export_points_to_mcp() -> None:
+    """The legacy `server` export should continue to reference the FastMCP instance."""
+    assert server_module.server is server_module.mcp
 
 
 def test_fastmcp_tools_registered() -> None:

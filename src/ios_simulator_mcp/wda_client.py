@@ -270,7 +270,9 @@ class WDAClient:
             json={"using": using, "value": value},
         )
         element_data = data.get("value", {})
-        element_id = element_data.get("ELEMENT") or element_data.get("element-6066-11e4-a52e-4f735466cecf")
+        element_id = element_data.get("ELEMENT") or element_data.get(
+            "element-6066-11e4-a52e-4f735466cecf"
+        )
         if not element_id:
             raise WDAError(f"Element not found: {using}={value}")
         return WDAElement(element_id=element_id)
@@ -297,7 +299,9 @@ class WDAClient:
         )
         elements = []
         for elem_data in data.get("value", []):
-            elem_id = elem_data.get("ELEMENT") or elem_data.get("element-6066-11e4-a52e-4f735466cecf")
+            elem_id = elem_data.get("ELEMENT") or elem_data.get(
+                "element-6066-11e4-a52e-4f735466cecf"
+            )
             if elem_id:
                 elements.append(WDAElement(element_id=elem_id))
         return elements
@@ -620,7 +624,6 @@ class WDAClient:
 
         Returns a list of app info dicts with bundleId, name, etc.
         """
-        session_id = await self._ensure_session()
         # WDA doesn't have a direct list apps endpoint, but we can use simctl
         # For WDA, we just return empty list and let simulator handle it
         return []
@@ -675,7 +678,10 @@ class WDAClient:
         await self._request(
             "POST",
             f"/session/{session_id}/wda/setPasteboard",
-            json={"content": base64.b64encode(content.encode()).decode(), "contentType": content_type},
+            json={
+                "content": base64.b64encode(content.encode()).decode(),
+                "contentType": content_type,
+            },
         )
 
     async def get_pasteboard(self, content_type: str = "plaintext") -> str:

@@ -296,7 +296,12 @@ class UITreeParser:
                 bounds = f" @ ({elem.center_x},{elem.center_y}) [{elem.width}x{elem.height}]"
                 lines.append(f"[{elem.index}] {elem.element_type}{text_part}{bounds}")
             else:
-                if text or elem.element_type in ("Button", "TextField", "SecureTextField", "Switch"):
+                if text or elem.element_type in (
+                    "Button",
+                    "TextField",
+                    "SecureTextField",
+                    "Switch",
+                ):
                     lines.append(f"[{elem.index}] {elem.element_type}{text_part}")
 
         return "\n".join(lines)
