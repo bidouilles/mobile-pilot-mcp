@@ -54,7 +54,7 @@ claude mcp add ios-simulator -e WDA_HOST=192.168.1.30 -- /path/to/ios-simulator-
 - **macOS** with Xcode installed
 - **Xcode Command Line Tools**: `xcode-select --install`
 - **Python 3.10+**
-- **WebDriverAgent**: Clone from https://github.com/appium/WebDriverAgent into `../WebDriverAgent`
+- **WebDriverAgent**: Clone from https://github.com/appium/WebDriverAgent (default expected by scripts: `~/WebDriverAgent`)
 
 ## Detailed Setup
 
@@ -64,7 +64,7 @@ WDA must be running for UI automation:
 
 ```bash
 # Option A: By simulator name
-cd ../WebDriverAgent
+cd ~/WebDriverAgent
 xcodebuild -project WebDriverAgent.xcodeproj \
   -scheme WebDriverAgentRunner \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
@@ -76,7 +76,10 @@ xcodebuild -project WebDriverAgent.xcodeproj \
   -destination 'platform=iOS Simulator,id=D8D53F70-4AB1-4B44-8602-82ED2AF4F2A9' \
   test
 
-# Option C: Helper script
+# Option C: Helper script (uses ~/WebDriverAgent by default)
+./scripts/start_wda.sh <UDID>
+
+# If WebDriverAgent is somewhere else:
 WDA_PATH=../WebDriverAgent ./scripts/start_wda.sh <UDID>
 ```
 
@@ -520,7 +523,7 @@ DASHBOARD_AUTO_OPEN=false
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `WDA_HOST` | `127.0.0.1` | WebDriverAgent host |
-| `WDA_PORT` | `8100` | WebDriverAgent port (via start_bridge) |
+| `WDA_PORT` | `8100` | Port used by `scripts/start_wda.sh` for launching WDA. For MCP calls, pass `port` to `start_bridge`. |
 | `DASHBOARD_PORT` | `8200` | Web dashboard port |
 | `DASHBOARD_AUTO_OPEN` | `true` | Auto-open dashboard in browser |
 
