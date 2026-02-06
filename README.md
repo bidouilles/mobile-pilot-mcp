@@ -542,11 +542,16 @@ ios-simulator-mcp/
 ├── pyproject.toml                    # Package configuration
 ├── README.md                         # This file
 ├── CLAUDE.md                         # AI assistant context
+├── AGENTS.md                         # Repository guidelines for AI assistants
+├── docs/
+│   └── dashboard-screenshot.png      # Dashboard screenshot
 ├── scripts/
 │   ├── setup.sh                      # Setup script
 │   ├── run_server.sh                 # Run MCP server
 │   ├── start_wda.sh                  # Start WebDriverAgent
 │   └── test_install.py               # Test installation
+├── tests/
+│   └── test_server_contract.py       # Server contract tests
 └── src/ios_simulator_mcp/
     ├── __init__.py
     ├── server.py                     # MCP server & tools

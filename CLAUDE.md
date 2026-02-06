@@ -71,8 +71,8 @@ python scripts/test_install.py
 
 ### Adding a New Tool
 
-1. Add `Tool` definition to `TOOLS` list in `server.py`
-2. Add handler in `handle_tool()` function
+1. Add a `@mcp.tool` decorated async function in `server.py`
+2. Use `Annotated[..., Field(...)]` for parameter descriptions
 3. If WDA API needed, add method to `wda_client.py`
 
 ## WDA API Reference
@@ -214,10 +214,10 @@ get_appearance device_id="..."
 
 Capture video of UI interactions:
 ```
-start_recording device_id="..." fps=24 quality="medium"
+start_recording device_id="..." codec="hevc"
 # ... perform actions ...
 stop_recording device_id="..."
-# Returns: /tmp/ios-simulator-mcp/recordings/recording-YYYYMMDD-HHMMSS.mp4
+# Returns: /tmp/ios-simulator-mcp/recordings/recording-YYYYMMDD-HHMMSS.mov
 ```
 
 ### Biometric Simulation
@@ -309,9 +309,10 @@ This enables:
 
 ## Dependencies
 
-- `mcp>=1.0.0` - MCP SDK
+- `fastmcp==2.14.4` - FastMCP SDK (pinned; see README for upgrade procedure)
 - `httpx>=0.27.0` - Async HTTP client
 - `Pillow>=10.0.0` - Image processing (for screenshots)
+- `aiohttp>=3.9.0` - Dashboard web server and WebSocket
 
 ## Web Dashboard
 
