@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iOS Simulator MCP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto+Mono:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #242424;
+            --bg-elevated: #2d2d2d;
+            --bg-hover: #333333;
+            --border-color: #3c3c3c;
+            --text-primary: #e8eaed;
+            --text-secondary: #9aa0a6;
+            --text-muted: #5f6368;
+            --accent: #8ab4f8;
+            --accent-hover: #aecbfa;
+            --success: #81c995;
+            --error: #f28b82;
+            --warning: #fdd663;
+            --radius: 8px;
+            --shadow: 0 1px 2px 0 rgba(0,0,0,0.3), 0 1px 3px 1px rgba(0,0,0,0.15);
+            --shadow-elevated: 0 1px 3px 0 rgba(0,0,0,0.3), 0 4px 8px 3px rgba(0,0,0,0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+            vertical-align: middle;
+        }
+
+        .app {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            height: 56px;
+            padding: 0 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            flex-shrink: 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1a1a1a;
+        }
+
+        .logo-text {
+            font-family: 'Google Sans', sans-serif;
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: var(--bg-elevated);
+            border-radius: 16px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .status-indicator.connected {
+            color: var(--success);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .status-indicator.connected .status-dot {
+            background: var(--success);
+        }
+
+        /* Main Layout - equal columns */
+        .main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1px;
+            background: var(--border-color);
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        @media (max-width: 1200px) {
+            .main { grid-template-columns: 1fr 1.2fr 1fr; }
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            height: 48px;
+            padding: 0 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            flex-shrink: 0;
+        }
+
+        .panel-title {
+            font-family: 'Google Sans', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .panel-badge {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .panel-body {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Tool Calls */
+        .tool-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .tool-item {
+            padding: 12px;
+            margin-bottom: 4px;
+            border-radius: var(--radius);
+            background: var(--bg-secondary);
+            border-left: 3px solid transparent;
+            transition: background 0.1s;
+        }
+
+        .tool-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .tool-item.success { border-left-color: var(--success); }
+        .tool-item.error { border-left-color: var(--error); }
+        .tool-item.pending { border-left-color: var(--warning); }
+
+        .tool-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .tool-name {
+            font-family: 'Google Sans', sans-serif;
+            font-weight: 500;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .tool-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .tool-duration {
+            padding: 2px 6px;
+            background: var(--bg-elevated);
+            border-radius: 4px;
+        }
+
+        .tool-args {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+            background: var(--bg-elevated);
+            padding: 8px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .tool-result {
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(129, 201, 149, 0.1);
+            border-radius: 4px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 11px;
+            color: var(--success);
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        .tool-error {
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(242, 139, 130, 0.1);
+            border-radius: 4px;
+            font-size: 11px;
+            color: var(--error);
+        }
+
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            gap: 8px;
+        }
+
+        /* Screenshot Panel */
+        .screenshot-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screenshot-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            background: #0d0d0d;
+            min-height: 0;
+            position: relative;
+        }
+
+        .device-screen {
+            max-width: 100%;
+            max-height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .device-screen img {
+            max-width: 100%;
+            max-height: calc(100vh - 180px);
+            object-fit: contain;
+            border-radius: 8px;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .no-preview {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .rec-indicator {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: var(--error);
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+            color: white;
+            z-index: 20;
+        }
+
+        .rec-dot {
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        /* Screenshot toolbar */
+        .screenshot-toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .toolbar-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .toolbar-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .toolbar-btn .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .auto-refresh input {
+            accent-color: var(--accent);
+        }
+
+        /* Coordinate tooltip */
+        .coord-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: var(--accent);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 11px;
+            pointer-events: none;
+            z-index: 100;
+            white-space: nowrap;
+            display: none;
+        }
+
+        .coord-tooltip.visible {
+            display: block;
+        }
+
+        /* Tap feedback */
+        .tap-feedback {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            animation: tap-ripple 0.4s ease-out forwards;
+        }
+
+        @keyframes tap-ripple {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+
+        /* Interaction mode toggle */
+        .mode-toggle {
+            display: flex;
+            background: var(--bg-elevated);
+            border-radius: 4px;
+            padding: 2px;
+            gap: 2px;
+        }
+
+        .mode-btn {
+            padding: 4px 8px;
+            background: transparent;
+            border: none;
+            border-radius: 3px;
+            color: var(--text-muted);
+            font-size: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.1s;
+        }
+
+        .mode-btn.active {
+            background: var(--accent);
+            color: #1a1a1a;
+        }
+
+        .mode-btn .material-symbols-outlined {
+            font-size: 14px;
+        }
+
+        /* Text input + App launcher inline */
+        .input-row {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
+        .text-input {
+            flex: 1;
+            min-width: 0;
+            padding: 6px 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 11px;
+            outline: none;
+        }
+
+        .text-input:focus {
+            border-color: var(--accent);
+        }
+
+        .text-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .send-btn {
+            padding: 6px 8px;
+            background: var(--accent);
+            border: none;
+            border-radius: 4px;
+            color: #1a1a1a;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+
+        .send-btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .send-btn .material-symbols-outlined {
+            font-size: 14px;
+        }
+
+        .app-select {
+            flex: 1;
+            min-width: 0;
+            padding: 6px 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .app-select:focus {
+            border-color: var(--accent);
+        }
+
+        /* Keyboard shortcuts hint */
+        .shortcuts-hint {
+            margin-top: 8px;
+            padding: 6px;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+
+        .shortcuts-hint kbd {
+            display: inline-block;
+            padding: 2px 5px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 10px;
+            margin-right: 4px;
+        }
+
+        /* Sequences */
+        .sequences-section {
+            margin-top: 8px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 8px;
+        }
+
+        .sequence-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .seq-record-btn {
+            padding: 3px 6px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            color: var(--text-secondary);
+            font-size: 9px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            transition: all 0.1s;
+        }
+
+        .seq-record-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .seq-record-btn.recording {
+            background: var(--error);
+            border-color: var(--error);
+            color: white;
+        }
+
+        .seq-record-btn .material-symbols-outlined {
+            font-size: 10px;
+        }
+
+        .sequence-list {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        .sequence-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 6px;
+            background: var(--bg-primary);
+            border-radius: 3px;
+            font-size: 10px;
+        }
+
+        .sequence-item .seq-name {
+            flex: 1;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sequence-item .seq-count {
+            color: var(--text-muted);
+            font-size: 9px;
+        }
+
+        .seq-icon-btn {
+            width: 18px;
+            height: 18px;
+            background: transparent;
+            border: none;
+            border-radius: 2px;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+        }
+
+        .seq-icon-btn:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .seq-icon-btn.play:hover {
+            color: var(--success);
+        }
+
+        .seq-icon-btn.delete:hover {
+            color: var(--error);
+        }
+
+        .seq-icon-btn .material-symbols-outlined {
+            font-size: 12px;
+        }
+
+        .seq-empty {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 6px;
+        }
+
+        .seq-recording-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 6px;
+            background: rgba(242, 139, 130, 0.15);
+            border: 1px solid rgba(242, 139, 130, 0.3);
+            border-radius: 3px;
+            font-size: 10px;
+            color: var(--error);
+            margin-bottom: 6px;
+        }
+
+        .seq-recording-indicator .rec-dot {
+            width: 5px;
+            height: 5px;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Right Panel */
+        .info-section {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-section:last-child {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        /* Stats - compact inline */
+        .stats-bar {
+            display: flex;
+            gap: 4px;
+        }
+
+        .stat-item {
+            flex: 1;
+            padding: 6px 4px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: 'Google Sans', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+
+        /* Device Info - compact */
+        .device-bar {
+            display: flex;
+            gap: 12px;
+            font-size: 11px;
+            flex-wrap: wrap;
+        }
+
+        .device-bar .info-item {
+            display: flex;
+            gap: 4px;
+        }
+
+        .device-bar .info-label {
+            color: var(--text-muted);
+        }
+
+        .device-bar .info-value {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .device-bar .info-value.online {
+            color: var(--success);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 12px;
+        }
+
+        .info-label {
+            color: var(--text-muted);
+        }
+
+        .info-value {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .info-value.online {
+            color: var(--success);
+        }
+
+        /* Actions - compact */
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 8px 4px;
+            background: var(--bg-secondary);
+            border: none;
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-size: 9px;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .action-btn .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        .action-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .action-btn.primary {
+            background: var(--accent);
+            color: #1a1a1a;
+        }
+
+        .action-btn.primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .action-btn.loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* Swipe Pad - inline */
+        .swipe-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
+        .swipe-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-secondary);
+            border: none;
+            border-radius: 4px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .swipe-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .swipe-btn .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--bg-hover); }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0.15s;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            transform: scale(0.95);
+            transition: transform 0.15s;
+        }
+
+        .modal-overlay.open .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-family: 'Google Sans', sans-serif;
+            font-size: 16px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .modal-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .modal-status.success {
+            background: rgba(129, 201, 149, 0.15);
+            color: var(--success);
+        }
+
+        .modal-status.error {
+            background: rgba(242, 139, 130, 0.15);
+            color: var(--error);
+        }
+
+        .modal-status.pending {
+            background: rgba(253, 214, 99, 0.15);
+            color: var(--warning);
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            border-radius: 50%;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .modal-section {
+            margin-bottom: 20px;
+        }
+
+        .modal-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .modal-section-title {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-code {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .modal-code.result {
+            color: var(--success);
+            border-color: rgba(129, 201, 149, 0.2);
+        }
+
+        .modal-code.error {
+            color: var(--error);
+            border-color: rgba(242, 139, 130, 0.2);
+        }
+
+        .copy-btn {
+            padding: 4px 10px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.1s;
+        }
+
+        .copy-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .copy-btn.copied {
+            background: rgba(129, 201, 149, 0.15);
+            color: var(--success);
+            border-color: rgba(129, 201, 149, 0.3);
+        }
+
+        .modal-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .modal-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Make tool items clickable */
+        .tool-item {
+            cursor: pointer;
+        }
+
+        .tool-item:hover {
+            background: var(--bg-hover);
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <span class="material-symbols-outlined">smartphone</span>
+                </div>
+                <span class="logo-text">iOS Simulator MCP</span>
+            </div>
+            <div class="status-indicator" id="statusIndicator">
+                <span class="status-dot"></span>
+                <span id="connectionText">Connecting</span>
+            </div>
+        </header>
+
+        <main class="main">
+            <!-- Tool Calls Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Tool Calls</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="panel-badge" id="callCount">0</span>
+                        <button class="toolbar-btn" onclick="clearHistory()" title="Clear history" style="padding: 4px 8px;">
+                            <span class="material-symbols-outlined" style="font-size: 14px;">delete</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="tool-list" id="toolCalls">
+                        <div class="empty-state">
+                            <span class="material-symbols-outlined">terminal</span>
+                            <span>Waiting for tool calls</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screenshot Panel -->
+            <div class="panel screenshot-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Device Preview</span>
+                    <span class="panel-badge" id="screenshotTime">—</span>
+                </div>
+                <div class="screenshot-container" id="screenshotContainer">
+                    <div class="rec-indicator" id="recIndicator" style="display: none;">
+                        <span class="rec-dot"></span>
+                        <span>REC</span>
+                    </div>
+                    <div class="coord-tooltip" id="coordTooltip">x: 0, y: 0</div>
+                    <div class="device-screen" id="deviceScreen"
+                         onmousemove="handleScreenMouseMove(event)"
+                         onmouseleave="hideCoordTooltip()"
+                         onclick="handleScreenClick(event)">
+                        <span class="no-preview">No preview</span>
+                    </div>
+                </div>
+                <div class="screenshot-toolbar">
+                    <div class="mode-toggle">
+                        <button class="mode-btn active" id="modeTap" onclick="setInteractionMode('tap')" title="Click to tap">
+                            <span class="material-symbols-outlined">touch_app</span>
+                            Tap
+                        </button>
+                        <button class="mode-btn" id="modeDownload" onclick="setInteractionMode('download')" title="Click to download">
+                            <span class="material-symbols-outlined">download</span>
+                            Save
+                        </button>
+                    </div>
+                    <button class="toolbar-btn" onclick="quickAction('get_screenshot')" title="Take new screenshot">
+                        <span class="material-symbols-outlined">photo_camera</span>
+                        Capture
+                    </button>
+                    <label class="auto-refresh">
+                        <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+                        Auto (3s)
+                    </label>
+                </div>
+            </div>
+
+            <!-- Info Panel -->
+            <div class="panel">
+                <div class="panel-body" style="overflow-y: auto;">
+                    <!-- Stats bar -->
+                    <div class="info-section">
+                        <div class="stats-bar">
+                            <div class="stat-item">
+                                <div class="stat-value" id="totalCalls">0</div>
+                                <div class="stat-label">Calls</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="successRate">—</div>
+                                <div class="stat-label">Success</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="avgDuration">—</div>
+                                <div class="stat-label">Avg</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="uptime">0s</div>
+                                <div class="stat-label">Up</div>
+                            </div>
+                        </div>
+                        <div class="device-bar" id="deviceInfo" style="margin-top: 8px;">
+                            <span class="info-item"><span class="info-label">Status:</span> <span class="info-value">Not connected</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="info-section">
+                        <div class="actions-grid">
+                            <button class="action-btn primary" id="connectBtn" onclick="autoConnect()">
+                                <span class="material-symbols-outlined">link</span>
+                                <span>Connect</span>
+                            </button>
+                            <button class="action-btn" onclick="quickAction('get_screenshot')">
+                                <span class="material-symbols-outlined">photo_camera</span>
+                                <span>Capture</span>
+                            </button>
+                            <button class="action-btn" onclick="quickAction('go_home')">
+                                <span class="material-symbols-outlined">home</span>
+                                <span>Home</span>
+                            </button>
+                            <button class="action-btn" onclick="quickAction('get_ui_tree')">
+                                <span class="material-symbols-outlined">account_tree</span>
+                                <span>UI Tree</span>
+                            </button>
+                            <button class="action-btn" onclick="toggleRecording()" id="recordBtn">
+                                <span class="material-symbols-outlined">videocam</span>
+                                <span>Record</span>
+                            </button>
+                            <button class="action-btn" onclick="quickAction('list_apps')">
+                                <span class="material-symbols-outlined">apps</span>
+                                <span>Apps</span>
+                            </button>
+                        </div>
+
+                        <!-- Swipe row -->
+                        <div class="swipe-row">
+                            <button class="swipe-btn" onclick="quickAction('swipe', {direction: 'left'})">
+                                <span class="material-symbols-outlined">arrow_back</span>
+                            </button>
+                            <button class="swipe-btn" onclick="quickAction('swipe', {direction: 'up'})">
+                                <span class="material-symbols-outlined">arrow_upward</span>
+                            </button>
+                            <button class="swipe-btn" onclick="quickAction('swipe', {direction: 'down'})">
+                                <span class="material-symbols-outlined">arrow_downward</span>
+                            </button>
+                            <button class="swipe-btn" onclick="quickAction('swipe', {direction: 'right'})">
+                                <span class="material-symbols-outlined">arrow_forward</span>
+                            </button>
+                        </div>
+
+                        <!-- Text + App row -->
+                        <div class="input-row">
+                            <input type="text" class="text-input" id="textInput" placeholder="Type text..." onkeydown="handleTextInputKey(event)">
+                            <button class="send-btn" onclick="sendText()" title="Send text">
+                                <span class="material-symbols-outlined">send</span>
+                            </button>
+                        </div>
+                        <div class="input-row">
+                            <select class="app-select" id="appSelect" onchange="launchSelectedApp()">
+                                <option value="">Launch app...</option>
+                                <option value="com.apple.Preferences">Settings</option>
+                                <option value="com.apple.mobilesafari">Safari</option>
+                                <option value="com.apple.Photos">Photos</option>
+                                <option value="com.apple.mobilenotes">Notes</option>
+                                <option value="com.apple.Maps">Maps</option>
+                                <option value="com.apple.camera">Camera</option>
+                            </select>
+                        </div>
+
+                        <!-- Sequences -->
+                        <div class="sequences-section">
+                            <div class="sequence-header">
+                                <span class="section-title" style="margin-bottom: 0;">Sequences</span>
+                                <button class="seq-record-btn" id="seqRecordBtn" onclick="toggleSequenceRecording()">
+                                    <span class="material-symbols-outlined">fiber_manual_record</span>
+                                    <span id="seqRecordText">Rec</span>
+                                </button>
+                            </div>
+                            <div class="seq-recording-indicator" id="seqRecordingIndicator" style="display: none;">
+                                <span class="rec-dot"></span>
+                                <span>Recording... <span id="seqActionCount">0</span> actions</span>
+                            </div>
+                            <div class="sequence-list" id="sequenceList">
+                                <div class="seq-empty">No saved sequences</div>
+                            </div>
+                        </div>
+
+                        <div class="shortcuts-hint">
+                            <kbd>S</kbd>Shot <kbd>H</kbd>Home <kbd>R</kbd>Rec <kbd>U</kbd>Tree <kbd>T</kbd>Text
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span id="modalToolName">tool_name</span>
+                    <span class="modal-status" id="modalStatus">success</span>
+                </div>
+                <button class="modal-close" onclick="closeModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-meta" id="modalMeta">
+                    <span class="modal-meta-item">
+                        <span class="material-symbols-outlined" style="font-size: 16px;">schedule</span>
+                        <span id="modalTime">--:--:--</span>
+                    </span>
+                    <span class="modal-meta-item">
+                        <span class="material-symbols-outlined" style="font-size: 16px;">timer</span>
+                        <span id="modalDuration">--ms</span>
+                    </span>
+                </div>
+
+                <div class="modal-section">
+                    <div class="modal-section-title">
+                        <span>Arguments</span>
+                        <button class="copy-btn" onclick="copyContent('modalArgs')">
+                            <span class="material-symbols-outlined" style="font-size: 14px;">content_copy</span>
+                            Copy
+                        </button>
+                    </div>
+                    <pre class="modal-code" id="modalArgs">{}</pre>
+                </div>
+
+                <div class="modal-section" id="modalResultSection">
+                    <div class="modal-section-title">
+                        <span>Result</span>
+                        <button class="copy-btn" onclick="copyContent('modalResult')">
+                            <span class="material-symbols-outlined" style="font-size: 14px;">content_copy</span>
+                            Copy
+                        </button>
+                    </div>
+                    <pre class="modal-code result" id="modalResult"></pre>
+                </div>
+
+                <div class="modal-section" id="modalErrorSection" style="display: none;">
+                    <div class="modal-section-title">
+                        <span>Error</span>
+                        <button class="copy-btn" onclick="copyContent('modalError')">
+                            <span class="material-symbols-outlined" style="font-size: 14px;">content_copy</span>
+                            Copy
+                        </button>
+                    </div>
+                    <pre class="modal-code error" id="modalError"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ UTILITIES ============
+        const $ = id => document.getElementById(id);
+        const $$ = sel => document.querySelectorAll(sel);
+        const delay = ms => new Promise(r => setTimeout(r, ms));
+
+        // ============ STATE ============
+        const state = {
+            ws: null,
+            deviceId: null,
+            toolCalls: [],
+            uptimeSeconds: 0,
+            reconnectAttempts: 0,
+            windowSize: { width: 393, height: 852 },
+            interactionMode: 'tap',
+            isRecording: false,
+            sequences: JSON.parse(localStorage.getItem('ios-mcp-sequences') || '[]'),
+            seqRecording: { active: false, actions: [] }
+        };
+
+        // ============ API ============
+        const api = {
+            async call(tool, args = {}) {
+                const response = await fetch('/api/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tool, args })
+                });
+                return response.json();
+            },
+
+            async callWithDevice(tool, extraArgs = {}) {
+                if (!await ensureConnected()) return null;
+                return this.call(tool, { device_id: state.deviceId, ...extraArgs });
+            }
+        };
+
+        // ============ CONNECTION ============
+        async function ensureConnected() {
+            if (state.deviceId) return true;
+            return autoConnect();
+        }
+
+        async function autoConnect() {
+            const btn = $('connectBtn');
+            btn?.classList.add('loading');
+
+            try {
+                const listResult = await api.call('list_devices', { only_booted: true });
+                if (!listResult.success || !listResult.result) return false;
+
+                const match = listResult.result.match(/UDID:\s*([A-F0-9-]+)/i);
+                if (!match) return false;
+
+                const bridgeResult = await api.call('start_bridge', { device_id: match[1] });
+                if (bridgeResult.success && bridgeResult.result?.includes('Session created')) {
+                    state.deviceId = match[1];
+                    fetchWindowSize();
+                    await delay(300);
+                    await api.call('get_screenshot', { device_id: state.deviceId });
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                console.error('Auto-connect failed:', e);
+                return false;
+            } finally {
+                btn?.classList.remove('loading');
+            }
+        }
+
+        async function fetchWindowSize() {
+            if (!state.deviceId) return;
+            const result = await api.call('get_window_size', { device_id: state.deviceId });
+            if (result.success) {
+                const match = result.result?.match(/(\d+)\s*x\s*(\d+)/);
+                if (match) state.windowSize = { width: +match[1], height: +match[2] };
+            }
+        }
+
+        // ============ WEBSOCKET ============
+        function connectWS() {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            state.ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+            state.ws.onopen = () => {
+                $('statusIndicator').classList.add('connected');
+                $('connectionText').textContent = 'Connected';
+                state.reconnectAttempts = 0;
+            };
+
+            state.ws.onclose = () => {
+                $('statusIndicator').classList.remove('connected');
+                $('connectionText').textContent = 'Reconnecting';
+                setTimeout(connectWS, Math.min(1000 * 2 ** state.reconnectAttempts++, 30000));
+            };
+
+            state.ws.onmessage = e => handleMessage(JSON.parse(e.data));
+        }
+
+        function handleMessage(msg) {
+            const handlers = {
+                init: d => {
+                    state.toolCalls = (d.tool_calls || []).reverse();
+                    state.uptimeSeconds = d.uptime || 0;
+                    if (d.device_info?.udid) state.deviceId = d.device_info.udid;
+                    renderToolCalls();
+                    updateStats();
+                    updateDeviceInfo(d.device_info);
+                    updateRecordingUI(d.recording_active);
+                    if (d.last_screenshot) {
+                        updateScreenshot();
+                    } else if (state.deviceId) {
+                        // Take a fresh screenshot if device connected but no cached screenshot
+                        delay(300).then(() => api.call('get_screenshot', { device_id: state.deviceId }));
+                    } else {
+                        setTimeout(autoConnect, 500);
+                    }
+                },
+                tool_call: d => {
+                    state.toolCalls.unshift(d);
+                    if (state.toolCalls.length > 100) state.toolCalls.pop();
+                    renderToolCalls();
+                },
+                tool_complete: d => {
+                    const idx = state.toolCalls.findIndex(c => c.id === d.id);
+                    if (idx >= 0) state.toolCalls[idx] = d;
+                    renderToolCalls();
+                    updateStats();
+                    if (d.tool_name === 'get_screenshot' && d.status === 'success') refreshScreenshot(300);
+                },
+                device_info: d => {
+                    updateDeviceInfo(d);
+                    if (d?.udid) state.deviceId = d.udid;
+                }
+            };
+            handlers[msg.type]?.(msg.data);
+        }
+
+        // ============ RENDERING ============
+        function renderToolCalls() {
+            $('callCount').textContent = state.toolCalls.length;
+            const container = $('toolCalls');
+
+            if (!state.toolCalls.length) {
+                container.innerHTML = '<div class="empty-state"><span class="material-symbols-outlined">terminal</span><span>Waiting for tool calls</span></div>';
+                return;
+            }
+
+            container.innerHTML = state.toolCalls.map((c, i) => `
+                <div class="tool-item ${c.status}" onclick="openModal(${i})">
+                    <div class="tool-header">
+                        <span class="tool-name">${c.tool_name}</span>
+                        <div class="tool-meta">
+                            ${c.duration_ms ? `<span class="tool-duration">${c.duration_ms.toFixed(0)}ms</span>` : ''}
+                            <span>${c.time_str}</span>
+                        </div>
+                    </div>
+                    <div class="tool-args">${formatArgs(c.arguments)}</div>
+                </div>
+            `).join('');
+        }
+
+        function formatArgs(args) {
+            if (!args || !Object.keys(args).length) return '(no arguments)';
+            return Object.entries(args).map(([k, v]) => {
+                const val = typeof v === 'object' ? JSON.stringify(v) : v;
+                return `${k}: ${String(val).slice(0, 40)}${String(val).length > 40 ? '...' : ''}`;
+            }).join('\n');
+        }
+
+        function updateStats() {
+            const completed = state.toolCalls.filter(c => c.status !== 'pending');
+            const success = completed.filter(c => c.status === 'success');
+
+            $('totalCalls').textContent = state.toolCalls.length;
+            if (completed.length) {
+                $('successRate').textContent = `${(success.length / completed.length * 100).toFixed(0)}%`;
+                const durations = completed.filter(c => c.duration_ms).map(c => c.duration_ms);
+                if (durations.length) {
+                    const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
+                    $('avgDuration').textContent = avg < 1000 ? `${avg.toFixed(0)}ms` : `${(avg/1000).toFixed(1)}s`;
+                }
+            }
+        }
+
+        function updateDeviceInfo(info) {
+            const el = $('deviceInfo');
+            if (!info || !Object.keys(info).length) {
+                el.innerHTML = '<span class="info-item"><span class="info-value">Not connected</span></span>';
+                return;
+            }
+            el.innerHTML = `
+                <span class="info-item"><span class="info-value">${info.name || '—'}</span></span>
+                <span class="info-item"><span class="info-label">iOS</span> <span class="info-value">${info.ios_version || '—'}</span></span>
+                <span class="info-item"><span class="info-value ${info.wda_connected ? 'online' : ''}">${info.wda_connected ? 'Connected' : '—'}</span></span>
+            `;
+        }
+
+        function updateScreenshot() {
+            $('deviceScreen').innerHTML = `<img src="/screenshot?t=${Date.now()}" alt="Screenshot" onerror="this.parentElement.innerHTML='<span class=\'no-preview\'>No preview</span>'">`;
+            $('screenshotTime').textContent = new Date().toLocaleTimeString();
+        }
+
+        function refreshScreenshot(ms = 300) {
+            setTimeout(updateScreenshot, ms);
+        }
+
+        function formatUptime(s) {
+            if (s < 60) return `${Math.floor(s)}s`;
+            if (s < 3600) return `${Math.floor(s / 60)}m`;
+            return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+        }
+
+        // ============ ACTIONS ============
+        const UI_ACTIONS = ['swipe', 'go_home', 'press_button', 'double_tap', 'long_press'];
+
+        async function quickAction(tool, extraArgs = {}) {
+            if (!await ensureConnected()) return;
+
+            const btn = event?.target?.closest('.action-btn, .swipe-btn');
+            btn?.classList.add('loading');
+
+            try {
+                const result = await api.call(tool, { device_id: state.deviceId, ...extraArgs });
+                if (!result.success) console.error('Action failed:', result.error);
+                recordAction(tool, extraArgs);
+
+                // Take screenshot after UI-affecting actions
+                if (UI_ACTIONS.includes(tool)) {
+                    await delay(300);
+                    await api.call('get_screenshot', { device_id: state.deviceId });
+                }
+            } catch (e) {
+                console.error('Action error:', e);
+            } finally {
+                btn?.classList.remove('loading');
+            }
+        }
+
+        async function toggleRecording() {
+            if (!await ensureConnected()) return;
+            const tool = state.isRecording ? 'stop_recording' : 'start_recording';
+            const btn = $('recordBtn');
+            btn?.classList.add('loading');
+
+            try {
+                const result = await api.call(tool, { device_id: state.deviceId });
+                if (result.success) {
+                    state.isRecording = !state.isRecording;
+                    updateRecordingUI(state.isRecording);
+                }
+            } finally {
+                btn?.classList.remove('loading');
+            }
+        }
+
+        function updateRecordingUI(active) {
+            state.isRecording = active;
+            const btn = $('recordBtn');
+            const indicator = $('recIndicator');
+
+            if (active) {
+                btn.innerHTML = '<span class="material-symbols-outlined">stop_circle</span><span>Stop</span>';
+                btn.style.cssText = 'background:var(--error);color:white';
+                indicator.style.display = 'flex';
+            } else {
+                btn.innerHTML = '<span class="material-symbols-outlined">videocam</span><span>Record</span>';
+                btn.style.cssText = '';
+                indicator.style.display = 'none';
+            }
+        }
+
+        // ============ SCREENSHOT INTERACTION ============
+        function setInteractionMode(mode) {
+            state.interactionMode = mode;
+            $('modeTap').classList.toggle('active', mode === 'tap');
+            $('modeDownload').classList.toggle('active', mode === 'download');
+            $('deviceScreen').style.cursor = mode === 'tap' ? 'crosshair' : 'pointer';
+        }
+
+        function getDeviceCoords(e) {
+            const img = document.querySelector('#deviceScreen img');
+            if (!img) return null;
+            const rect = img.getBoundingClientRect();
+            const scaleX = state.windowSize.width / rect.width;
+            const scaleY = state.windowSize.height / rect.height;
+            return {
+                x: Math.max(0, Math.min(Math.round((e.clientX - rect.left) * scaleX), state.windowSize.width)),
+                y: Math.max(0, Math.min(Math.round((e.clientY - rect.top) * scaleY), state.windowSize.height))
+            };
+        }
+
+        function handleScreenMouseMove(e) {
+            const coords = getDeviceCoords(e);
+            if (!coords) return;
+            const tooltip = $('coordTooltip');
+            const rect = $('screenshotContainer').getBoundingClientRect();
+            tooltip.textContent = `x: ${coords.x}, y: ${coords.y}`;
+            tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+            tooltip.style.top = (e.clientY - rect.top - 24) + 'px';
+            tooltip.classList.add('visible');
+        }
+
+        function hideCoordTooltip() { $('coordTooltip').classList.remove('visible'); }
+
+        async function handleScreenClick(e) {
+            if (state.interactionMode === 'download') return downloadScreenshot();
+
+            const coords = getDeviceCoords(e);
+            if (!coords || !await ensureConnected()) return;
+
+            showTapFeedback(e);
+            recordAction('tap', { x: coords.x, y: coords.y });
+            await api.call('tap', { device_id: state.deviceId, ...coords });
+            await delay(200);
+            await api.call('get_screenshot', { device_id: state.deviceId });
+        }
+
+        function showTapFeedback(e) {
+            const rect = $('screenshotContainer').getBoundingClientRect();
+            const fb = document.createElement('div');
+            fb.className = 'tap-feedback';
+            fb.style.left = (e.clientX - rect.left) + 'px';
+            fb.style.top = (e.clientY - rect.top) + 'px';
+            $('screenshotContainer').appendChild(fb);
+            setTimeout(() => fb.remove(), 400);
+        }
+
+        function downloadScreenshot() {
+            const link = document.createElement('a');
+            link.href = '/screenshot?t=' + Date.now();
+            link.download = 'screenshot-' + new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-') + '.jpg';
+            link.click();
+        }
+
+        // ============ TEXT & APP ============
+        function handleTextInputKey(e) { if (e.key === 'Enter') sendText(); }
+
+        async function sendText() {
+            const input = $('textInput');
+            const text = input.value.trim();
+            if (!text || !await ensureConnected()) return;
+
+            recordAction('type_text', { text });
+            await api.call('type_text', { device_id: state.deviceId, text });
+            input.value = '';
+            await delay(200);
+            await api.call('get_screenshot', { device_id: state.deviceId });
+        }
+
+        async function launchSelectedApp() {
+            const select = $('appSelect');
+            const bundleId = select.value;
+            if (!bundleId || !await ensureConnected()) { select.value = ''; return; }
+
+            recordAction('launch_app', { bundle_id: bundleId });
+            await api.call('launch_app', { device_id: state.deviceId, bundle_id: bundleId });
+            select.value = '';
+            await delay(500);
+            await api.call('get_screenshot', { device_id: state.deviceId });
+        }
+
+        // ============ MODAL ============
+        function openModal(idx) {
+            const c = state.toolCalls[idx];
+            if (!c) return;
+
+            $('modalToolName').textContent = c.tool_name;
+            $('modalStatus').textContent = c.status;
+            $('modalStatus').className = 'modal-status ' + c.status;
+            $('modalTime').textContent = c.time_str;
+            $('modalDuration').textContent = c.duration_ms ? c.duration_ms.toFixed(0) + 'ms' : '—';
+            $('modalArgs').textContent = JSON.stringify(c.arguments || {}, null, 2);
+
+            $('modalResultSection').style.display = c.result ? 'block' : 'none';
+            $('modalResult').textContent = c.result || '';
+            $('modalErrorSection').style.display = c.error ? 'block' : 'none';
+            $('modalError').textContent = c.error || '';
+
+            $('modalOverlay').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(e) {
+            if (e && e.target !== e.currentTarget) return;
+            $('modalOverlay').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        function copyContent(id) {
+            navigator.clipboard.writeText($(id).textContent).then(() => {
+                const btn = $(id).parentElement.querySelector('.copy-btn');
+                if (btn) {
+                    btn.classList.add('copied');
+                    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">check</span> Copied';
+                    setTimeout(() => {
+                        btn.classList.remove('copied');
+                        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">content_copy</span> Copy';
+                    }, 2000);
+                }
+            });
+        }
+
+        // ============ AUTO-REFRESH ============
+        let autoRefreshInterval = null;
+
+        function toggleAutoRefresh() {
+            if ($('autoRefresh').checked) {
+                autoRefreshInterval = setInterval(() => state.deviceId && quickAction('get_screenshot'), 3000);
+            } else {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
+
+        function clearHistory() {
+            state.toolCalls = [];
+            renderToolCalls();
+            updateStats();
+        }
+
+        // ============ SEQUENCES ============
+        function saveSequences() { localStorage.setItem('ios-mcp-sequences', JSON.stringify(state.sequences)); }
+
+        function renderSequences() {
+            const list = $('sequenceList');
+            if (!state.sequences.length) {
+                list.innerHTML = '<div class="seq-empty">No saved sequences</div>';
+                return;
+            }
+            list.innerHTML = state.sequences.map((s, i) => `
+                <div class="sequence-item">
+                    <span class="seq-name" title="${s.name}">${s.name}</span>
+                    <span class="seq-count">${s.actions.length}</span>
+                    <button class="seq-icon-btn play" onclick="playSequence(${i})"><span class="material-symbols-outlined">play_arrow</span></button>
+                    <button class="seq-icon-btn delete" onclick="deleteSequence(${i})"><span class="material-symbols-outlined">close</span></button>
+                </div>
+            `).join('');
+        }
+
+        function toggleSequenceRecording() {
+            state.seqRecording.active ? stopSequenceRecording() : startSequenceRecording();
+        }
+
+        function startSequenceRecording() {
+            state.seqRecording = { active: true, actions: [] };
+            $('seqRecordBtn').classList.add('recording');
+            $('seqRecordText').textContent = 'Stop';
+            $('seqRecordingIndicator').style.display = 'flex';
+            $('seqActionCount').textContent = '0';
+        }
+
+        function stopSequenceRecording() {
+            $('seqRecordBtn').classList.remove('recording');
+            $('seqRecordText').textContent = 'Rec';
+            $('seqRecordingIndicator').style.display = 'none';
+
+            if (state.seqRecording.actions.length) {
+                const name = prompt('Name this sequence:', `Sequence ${state.sequences.length + 1}`);
+                if (name) {
+                    state.sequences.push({ name, actions: state.seqRecording.actions, created: Date.now() });
+                    saveSequences();
+                    renderSequences();
+                }
+            }
+            state.seqRecording = { active: false, actions: [] };
+        }
+
+        function recordAction(tool, args) {
+            if (!state.seqRecording.active) return;
+            const RECORDABLE = ['tap', 'type_text', 'swipe', 'go_home', 'launch_app', 'press_button'];
+            if (!RECORDABLE.includes(tool)) return;
+
+            const cleanArgs = { ...args };
+            delete cleanArgs.device_id;
+            state.seqRecording.actions.push({ tool, args: cleanArgs });
+            $('seqActionCount').textContent = state.seqRecording.actions.length;
+        }
+
+        async function playSequence(idx) {
+            const seq = state.sequences[idx];
+            if (!seq?.actions.length || !await ensureConnected()) return;
+
+            $$('.seq-icon-btn.play').forEach(b => b.disabled = true);
+            try {
+                for (const a of seq.actions) {
+                    await api.call(a.tool, { device_id: state.deviceId, ...a.args });
+                    await delay(300);
+                }
+                await delay(200);
+                await api.call('get_screenshot', { device_id: state.deviceId });
+            } finally {
+                $$('.seq-icon-btn.play').forEach(b => b.disabled = false);
+            }
+        }
+
+        function deleteSequence(idx) {
+            if (confirm('Delete this sequence?')) {
+                state.sequences.splice(idx, 1);
+                saveSequences();
+                renderSequences();
+            }
+        }
+
+        // ============ KEYBOARD SHORTCUTS ============
+        document.addEventListener('keydown', e => {
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+                if (e.key === 'Escape') e.target.blur();
+                return;
+            }
+            if (e.key === 'Escape') return closeModal();
+
+            const shortcuts = { s: () => quickAction('get_screenshot'), h: () => quickAction('go_home'), r: toggleRecording, t: () => $('textInput').focus(), u: () => quickAction('get_ui_tree') };
+            const fn = shortcuts[e.key.toLowerCase()];
+            if (fn) { e.preventDefault(); fn(); }
+        });
+
+        // ============ INIT ============
+        setInterval(() => $('uptime').textContent = formatUptime(++state.uptimeSeconds), 1000);
+        setInteractionMode('tap');
+        renderSequences();
+        connectWS();
+    </script>
+</body>
+</html>

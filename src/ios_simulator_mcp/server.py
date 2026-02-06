@@ -1087,6 +1087,23 @@ async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextCon
         return [TextContent(type="text", text=f"Internal error: {e}")]
 
 
+async def execute_tool_from_dashboard(name: str, args: dict[str, Any]) -> str:
+    """Execute a tool from the dashboard quick actions.
+
+    This wraps handle_tool with dashboard tracking.
+    """
+    # Track tool call in dashboard
+    tool_call = dashboard_state.add_tool_call(name, args)
+
+    try:
+        result = await handle_tool(name, args)
+        dashboard_state.complete_tool_call(tool_call, result=result)
+        return result
+    except Exception as e:
+        dashboard_state.complete_tool_call(tool_call, error=str(e))
+        raise
+
+
 async def handle_tool(name: str, args: dict[str, Any]) -> str:
     """Handle a tool call and return the result as a string."""
 
@@ -2008,6 +2025,9 @@ def main():
     logger.info("=" * 60)
 
     async def run():
+        # Wire up tool executor for dashboard quick actions
+        dashboard_state.tool_executor = execute_tool_from_dashboard
+
         # Start the dashboard server
         dashboard_runner = await start_dashboard()
 
