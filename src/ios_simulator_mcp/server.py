@@ -140,6 +140,7 @@ async def lifespan(mcp: FastMCP):
     logger.info("iOS Simulator MCP Server starting...")
     logger.info(f"WDA_HOST: {WDA_HOST}")
     logger.info(f"WDA_PORT: {DEFAULT_WDA_PORT}")
+    logger.info("WDA port override: pass `port` to `start_bridge` per connection")
     logger.info(f"Screenshot dir: {SCREENSHOT_DIR}")
     logger.info(f"Dashboard port: {DASHBOARD_PORT}")
     logger.info(f"Log level: {LOG_LEVEL}")
