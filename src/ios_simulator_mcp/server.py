@@ -316,6 +316,20 @@ async def get_screenshot(
     await simulator_manager.screenshot(device_id, temp_filepath)
 
     with Image.open(temp_filepath) as img:
+        # Fix landscape screenshots: simctl captures the raw framebuffer
+        # in portrait orientation, so landscape content appears rotated.
+        if img.height > img.width:
+            try:
+                client = wda_clients.get(device_id)
+                if client:
+                    orientation = (await client.get_orientation()).upper()
+                    if orientation in ("LANDSCAPE", "LANDSCAPE_LEFT"):
+                        img = img.transpose(Image.Transpose.ROTATE_90)
+                    elif orientation == "LANDSCAPE_RIGHT":
+                        img = img.transpose(Image.Transpose.ROTATE_270)
+            except Exception as e:
+                logger.debug("Could not query orientation for rotation: %s", e)
+
         original_size = img.size
         original_file_size = temp_filepath.stat().st_size
 
