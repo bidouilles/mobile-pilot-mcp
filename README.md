@@ -7,6 +7,12 @@
 MCP server for iOS Simulator automation through WebDriverAgent.
 Use it from Claude, Cursor, Windsurf, and other MCP clients to tap, type, swipe, take screenshots, launch apps, and monitor sessions live.
 
+## Why This Project
+
+- Fast UI iteration on iOS simulators with natural-language automation.
+- Reliable visual validation with screenshots, recordings, and a live dashboard.
+- Better Flutter workflows when paired with Dart MCP for runtime + tooling context.
+
 ## Prerequisites
 
 - macOS with Xcode installed
@@ -69,6 +75,30 @@ Main capabilities:
 - Live screenshot preview with click-to-tap
 - Quick actions (connect, capture, home, UI tree, recording, apps)
 
+## Flutter Development
+
+For Flutter work, use this MCP server together with Dart MCP to combine simulator control and Flutter runtime tooling.
+
+Reference: [Flutter announcement (July 23, 2025)](https://blog.flutter.dev/supercharge-your-dart-flutter-development-experience-with-the-dart-mcp-server-2edcc8107b49)
+
+Minimum versions called out in that announcement:
+- Dart SDK `3.9+`
+- Flutter `3.35 beta+`
+
+```bash
+claude mcp add --transport stdio dart -- dart mcp-server
+```
+
+Recommended split:
+- `ios-simulator-mcp`: simulator control, screenshots, gestures, app/system actions
+- `dart mcp-server`: runtime errors, widget/runtime introspection, hot reload, tests, pub.dev/package workflows
+
+Optional (older Dart setups that still need experimental flag):
+
+```bash
+claude mcp add --transport stdio dart -- dart mcp-server --experimental-mcp-server
+```
+
 ## Where Everything Else Lives
 
 Detailed documentation is in `docs/`:
@@ -85,6 +115,31 @@ pip install -e "[dev]"
 ruff check .
 python scripts/test_install.py
 ```
+
+## Contributing
+
+1. Fork and clone the repository.
+2. Set up local environment:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -e "[dev]"
+```
+
+3. Run quality checks before opening a PR:
+
+```bash
+ruff check .
+python scripts/test_install.py
+```
+
+4. Open a PR with:
+- clear purpose and scope
+- verification steps/commands
+- screenshot/recording for dashboard or UI behavior changes
+
+Contributor conventions and repo guidelines are documented in `AGENTS.md`.
 
 ## License
 
