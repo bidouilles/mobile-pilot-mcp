@@ -24,6 +24,12 @@ Optional one-step setup:
 
 WDA must be running for UI automation.
 
+Clone WebDriverAgent (one-time):
+
+```bash
+git clone https://github.com/appium/WebDriverAgent.git ~/WebDriverAgent
+```
+
 ```bash
 # Option A: helper script (default path: ~/WebDriverAgent)
 ./scripts/start_wda.sh <UDID>
@@ -31,7 +37,10 @@ WDA must be running for UI automation.
 # If no UDID is provided, the script shows device choices
 ./scripts/start_wda.sh
 
-# If WebDriverAgent is elsewhere:
+# Optional explicit form (same as default):
+WDA_PATH=~/WebDriverAgent ./scripts/start_wda.sh <UDID>
+
+# If WebDriverAgent is elsewhere, set the actual path:
 WDA_PATH=../WebDriverAgent ./scripts/start_wda.sh <UDID>
 ```
 

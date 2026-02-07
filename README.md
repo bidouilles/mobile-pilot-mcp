@@ -12,7 +12,7 @@ Use it from Claude, Cursor, Windsurf, and other MCP clients to tap, type, swipe,
 - macOS with Xcode installed
 - Xcode Command Line Tools: `xcode-select --install`
 - Python 3.10+
-- WebDriverAgent cloned locally (default used by scripts: `~/WebDriverAgent`)
+- WebDriverAgent cloned locally from `https://github.com/appium/WebDriverAgent`
 
 ## Quick Start
 
@@ -27,9 +27,19 @@ pip install -e .
 2. Start WebDriverAgent:
 
 ```bash
+# clone once (if you do not already have it)
+git clone https://github.com/appium/WebDriverAgent.git ~/WebDriverAgent
+
+# default path used by script: $HOME/WebDriverAgent
 ./scripts/start_wda.sh
 # or
 ./scripts/start_wda.sh <UDID>
+
+# optional explicit form (same as default)
+WDA_PATH=~/WebDriverAgent ./scripts/start_wda.sh <UDID>
+
+# if your clone is elsewhere, set the actual path (example: sibling directory)
+WDA_PATH=../WebDriverAgent ./scripts/start_wda.sh <UDID>
 ```
 
 3. Add MCP server to Claude Code:
