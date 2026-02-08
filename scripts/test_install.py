@@ -2,8 +2,8 @@
 """Quick test to verify the installation works."""
 
 import asyncio
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Allow local source imports without requiring editable install.
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
