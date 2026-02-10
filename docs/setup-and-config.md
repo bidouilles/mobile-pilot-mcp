@@ -69,6 +69,21 @@ claude mcp add mobile-pilot -e WDA_HOST=192.168.1.30 -- /path/to/mobile-pilot-mc
 claude mcp remove mobile-pilot
 ```
 
+### Codex (CLI)
+
+```bash
+codex mcp add mobile-pilot -- /path/to/mobile-pilot-mcp/venv/bin/mobile-pilot-mcp
+codex mcp add mobile-pilot -e WDA_HOST=192.168.1.30 -- /path/to/mobile-pilot-mcp/venv/bin/mobile-pilot-mcp
+codex mcp remove mobile-pilot
+```
+
+### Dart MCP (optional)
+
+```bash
+claude mcp add --transport stdio dart -- dart mcp-server
+codex mcp add dart -- dart mcp-server
+```
+
 ### JSON config (Claude/Cursor/Windsurf)
 
 ```json

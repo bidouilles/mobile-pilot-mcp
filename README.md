@@ -26,10 +26,20 @@ claude mcp add mobile-pilot -- /path/to/mobile-pilot-mcp/venv/bin/mobile-pilot-m
 python scripts/test_install.py
 ```
 
+Codex CLI equivalent:
+
+```bash
+codex mcp add mobile-pilot -- /path/to/mobile-pilot-mcp/venv/bin/mobile-pilot-mcp
+```
+
 If WDA is not on localhost:
 
 ```bash
 claude mcp add mobile-pilot -e WDA_HOST=192.168.1.30 -- /path/to/mobile-pilot-mcp/venv/bin/mobile-pilot-mcp
+```
+
+```bash
+codex mcp add mobile-pilot -e WDA_HOST=192.168.1.30 -- /path/to/mobile-pilot-mcp/venv/bin/mobile-pilot-mcp
 ```
 
 ## Try This First
@@ -47,6 +57,10 @@ Use both servers together for a stronger Flutter dev loop.
 
 ```bash
 claude mcp add --transport stdio dart -- dart mcp-server
+```
+
+```bash
+codex mcp add dart -- dart mcp-server
 ```
 
 Recommended split:
