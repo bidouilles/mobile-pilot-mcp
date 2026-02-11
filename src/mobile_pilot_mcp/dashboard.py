@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import time
+import secrets
 import webbrowser
 from dataclasses import dataclass
 from datetime import datetime
@@ -19,7 +20,9 @@ logger = logging.getLogger(__name__)
 
 # Dashboard configuration (can be overridden via environment variables)
 DASHBOARD_PORT = int(os.environ.get("DASHBOARD_PORT", "8200"))
+DASHBOARD_HOST = os.environ.get("DASHBOARD_HOST", "127.0.0.1")
 DASHBOARD_AUTO_OPEN = os.environ.get("DASHBOARD_AUTO_OPEN", "true").lower() in ("true", "1", "yes")
+DASHBOARD_AUTH_TOKEN = os.environ.get("DASHBOARD_AUTH_TOKEN", "").strip()
 
 
 @dataclass
@@ -210,6 +213,15 @@ async def handle_screenshot(request: web.Request) -> web.Response:
 async def handle_action(request: web.Request) -> web.Response:
     """Execute a quick action (tool call) from the dashboard."""
     try:
+        if DASHBOARD_AUTH_TOKEN:
+            provided_token = request.headers.get("X-Dashboard-Token", "")
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                provided_token = auth_header[7:].strip() or provided_token
+
+            if not secrets.compare_digest(provided_token, DASHBOARD_AUTH_TOKEN):
+                return web.json_response({"success": False, "error": "Unauthorized"}, status=401)
+
         data = await request.json()
         tool = data.get("tool")
         args = data.get("args", {})
@@ -275,12 +287,15 @@ def create_dashboard_app() -> web.Application:
 
 
 async def start_dashboard(
+    host: str = DASHBOARD_HOST,
     port: int = DASHBOARD_PORT,
     auto_open: bool = DASHBOARD_AUTO_OPEN,
 ) -> web.AppRunner:
     """Start the dashboard server.
 
     Args:
+        host: Host/interface to bind the dashboard on.
+            Defaults to 127.0.0.1 for local-only access.
         port: Port to run dashboard on
         auto_open: Whether to auto-open browser.
             Set `DASHBOARD_AUTO_OPEN=false` to disable.
@@ -289,11 +304,11 @@ async def start_dashboard(
     runner = web.AppRunner(app)
     await runner.setup()
 
-    site = web.TCPSite(runner, "0.0.0.0", port)
+    site = web.TCPSite(runner, host, port)
     await site.start()
 
     url = f"http://localhost:{port}"
-    logger.info("Dashboard started at %s", url)
+    logger.info("Dashboard started at %s (bound to %s)", url, host)
 
     # Auto-open browser
     if auto_open:

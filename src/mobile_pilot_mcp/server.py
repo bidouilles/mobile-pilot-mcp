@@ -199,6 +199,18 @@ async def lifespan(mcp: FastMCP):
         if dashboard_runner is not None:
             await stop_dashboard(dashboard_runner)
 
+        # Ensure HTTP clients are released when the server exits.
+        unique_clients = {id(client): client for client in wda_clients.values()}.values()
+        for client in unique_clients:
+            try:
+                await client.close()
+            except Exception as exc:
+                logger.debug("Error closing WDA client: %s", exc)
+
+        wda_clients.clear()
+        _last_ui_elements.clear()
+        _recording_paths.clear()
+
 
 # === Create FastMCP Server ===
 
@@ -310,7 +322,7 @@ async def start_bridge(
 @mcp.tool
 async def get_screenshot(
     device_id: Annotated[str, Field(description="Simulator UDID")],
-    scale: Annotated[float, Field(description="Scale factor 0.1-1.0")] = 0.5,
+    scale: Annotated[float, Field(ge=0.1, le=1.0, description="Scale factor 0.1-1.0")] = 0.5,
     format: Annotated[Literal["png", "jpeg"], Field(description="Image format")] = "jpeg",
     quality: Annotated[int, Field(ge=1, le=100, description="JPEG quality 1-100")] = 85,
 ) -> str:
@@ -421,7 +433,7 @@ async def tap(
             _, elements = parser.parse(source, only_visible=True)
             _last_ui_elements[device_id] = elements
 
-        if index >= len(elements):
+        if index < 0 or index >= len(elements):
             return f"Invalid index {index}. Max index is {len(elements) - 1}"
 
         elem = elements[index]
@@ -958,9 +970,19 @@ async def discover_dtd_uris(
             "vm_name": vm_name or "Dart VM",
         })
 
+    async def run_command(*cmd: str, timeout: int) -> subprocess.CompletedProcess[str]:
+        return await asyncio.to_thread(
+            subprocess.run,
+            list(cmd),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+
     # Step 1: Look for VM service URIs in process command lines
     try:
-        result = subprocess.run(["ps", "aux"], capture_output=True, text=True, timeout=10)
+        result = await run_command("ps", "aux", timeout=10)
         uri_pattern = re.compile(
             r'((?:ws|http)s?://(?:127\.0\.0\.1|localhost):\d+/[A-Za-z0-9+/]+=*/?)(?:ws)?'
         )
@@ -1032,10 +1054,7 @@ async def discover_dtd_uris(
 
     # Step 3: Find dart processes with listening ports and probe them
     try:
-        result = subprocess.run(
-            ["lsof", "-iTCP", "-sTCP:LISTEN", "-n", "-P"],
-            capture_output=True, text=True, timeout=10,
-        )
+        result = await run_command("lsof", "-iTCP", "-sTCP:LISTEN", "-n", "-P", timeout=10)
 
         candidate_ports: list[tuple[int, str]] = []
 
@@ -1074,15 +1093,16 @@ async def discover_dtd_uris(
 
     # Step 4: Check macOS Console logs
     try:
-        result = subprocess.run(
-            [
-                "log", "show",
-                "--predicate",
-                'processImagePath CONTAINS "dart" OR processImagePath CONTAINS "flutter"',
-                "--last", "5m",
-                "--style", "compact",
-            ],
-            capture_output=True, text=True, timeout=15,
+        result = await run_command(
+            "log",
+            "show",
+            "--predicate",
+            'processImagePath CONTAINS "dart" OR processImagePath CONTAINS "flutter"',
+            "--last",
+            "5m",
+            "--style",
+            "compact",
+            timeout=15,
         )
 
         uri_pattern = re.compile(

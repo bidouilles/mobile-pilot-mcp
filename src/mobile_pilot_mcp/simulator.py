@@ -146,6 +146,8 @@ class SimulatorManager:
         except json.JSONDecodeError as e:
             raise SimulatorError(f"Failed to parse simctl output: {e}") from e
 
+        # Rebuild cache on refresh to avoid stale devices lingering.
+        self._devices_cache = {}
         devices: list[SimulatorDevice] = []
         for runtime, device_list in data.get("devices", {}).items():
             for device_data in device_list:
