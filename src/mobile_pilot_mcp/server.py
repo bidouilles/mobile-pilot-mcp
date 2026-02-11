@@ -1307,7 +1307,9 @@ server = mcp
 
 def main():
     """Run the MCP server."""
-    mcp.run()
+    # Codex connects over stdio; any non-protocol stdout output can break the
+    # MCP handshake, so disable FastMCP banner output explicitly.
+    mcp.run(transport="stdio", show_banner=False)
 
 
 if __name__ == "__main__":
