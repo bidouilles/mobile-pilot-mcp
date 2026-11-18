@@ -6,7 +6,7 @@ This file provides context for AI assistants working on this project.
 
 **mobile-pilot-mcp** - Your AI co-pilot for mobile simulators. MCP server for iOS Simulator automation via WebDriverAgent. Control simulators from Claude, Cursor, and other AI assistants. Tap, type, swipe, screenshot, launch apps, and more. iOS today, Android coming soon.
 
-This Python MCP server enables AI assistants to automate iOS Simulators via WebDriverAgent (WDA). It provides 37 tools and 2 resources for UI automation, screenshots, app control, and system interactions.
+This Python MCP server enables AI assistants to automate iOS Simulators via WebDriverAgent (WDA). It provides 44 tools and 2 resources for UI automation, screenshots, app control, and system interactions.
 
 ## Architecture
 

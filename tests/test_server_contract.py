@@ -23,6 +23,14 @@ def test_fastmcp_tools_registered() -> None:
         "get_screenshot",
         "tap",
         "discover_dtd_uris",
+        "wait_for_element",
+        "get_app_state",
+        "install_app",
+        "uninstall_app",
+        "set_orientation",
+        "send_push_notification",
+        "add_media",
+        "clear_keychain",
     }
     assert expected_tools.issubset(tool_names)
 
