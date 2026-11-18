@@ -80,10 +80,19 @@ codex mcp remove mobile-pilot
 
 ### Dart MCP (optional)
 
+Needs Dart 3.9 / Flutter 3.35 or later.
+
 ```bash
 claude mcp add --transport stdio dart -- dart mcp-server
 codex mcp add dart -- dart mcp-server
 ```
+
+Connecting the Dart MCP server to a running app needs a **DTD URI** (Dart Tooling Daemon), not a VM service URI:
+
+| Flutter / Dart | How to connect |
+|----------------|----------------|
+| 3.44 / 3.12 or later | Ask the Dart MCP server: `dtd` tool, `listDtdUris` then `connect` |
+| 3.35 – 3.41 / 3.9 – 3.11 | Start the app with `flutter run --print-dtd`, then pass the printed URI to `connect_dart_tooling_daemon` |
 
 ### JSON config (Claude/Cursor/Windsurf)
 

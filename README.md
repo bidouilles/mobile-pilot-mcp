@@ -70,7 +70,7 @@ Once connected in your MCP client, try prompts like:
 
 ## Flutter + Dart MCP
 
-Use both servers together for a stronger Flutter dev loop.
+Use both servers together for a stronger Flutter dev loop. The [Dart and Flutter MCP server](https://docs.flutter.dev/ai/mcp-server) needs Dart 3.9 / Flutter 3.35 or later.
 
 ```bash
 claude mcp add --transport stdio dart -- dart mcp-server
@@ -84,7 +84,14 @@ Recommended split:
 - `mobile-pilot-mcp`: simulator control, screenshots, gestures, app/system actions
 - `dart mcp-server`: runtime errors, widget/runtime introspection, hot reload, tests, pub.dev/package workflows
 
-Reference: [Supercharge Your Dart & Flutter Development Experience with the Dart and Flutter MCP Server](https://blog.flutter.dev/supercharge-your-dart-flutter-development-experience-with-the-dart-mcp-server-2edcc8107b49)
+Connecting the Dart MCP server to a running app needs a **DTD URI** (Dart Tooling Daemon), not a VM service URI:
+
+| Flutter / Dart | How to connect |
+|----------------|----------------|
+| 3.44 / 3.12 or later | Ask the Dart MCP server: `dtd` tool, `listDtdUris` then `connect` |
+| 3.35 – 3.41 / 3.9 – 3.11 | Start the app with `flutter run --print-dtd`, then pass the printed URI to `connect_dart_tooling_daemon` |
+
+With a project-pinned SDK (fvm), register the server with that SDK's `dart`, for example `.fvm/flutter_sdk/bin/dart mcp-server`.
 
 ## Comparison
 

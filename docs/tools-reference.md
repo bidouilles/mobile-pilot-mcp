@@ -68,12 +68,6 @@
 | `dismiss_alert` | Dismiss alert dialog |
 | `get_alert_text` | Get alert text |
 
-## Flutter Integration
-
-| Tool | Description |
-|------|-------------|
-| `discover_dtd_uris` | Discover Dart Tooling Daemon URIs |
-
 ## Predicates
 
 Supported fields for element matching:

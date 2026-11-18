@@ -6,7 +6,7 @@ This file provides context for AI assistants working on this project.
 
 **mobile-pilot-mcp** - Your AI co-pilot for mobile simulators. MCP server for iOS Simulator automation via WebDriverAgent. Control simulators from Claude, Cursor, and other AI assistants. Tap, type, swipe, screenshot, launch apps, and more. iOS today, Android coming soon.
 
-This Python MCP server enables AI assistants to automate iOS Simulators via WebDriverAgent (WDA). It provides 44 tools and 2 resources for UI automation, screenshots, app control, and system interactions.
+This Python MCP server enables AI assistants to automate iOS Simulators via WebDriverAgent (WDA). It provides 43 tools and 2 resources for UI automation, screenshots, app control, and system interactions.
 
 ## Architecture
 
@@ -289,43 +289,14 @@ For the strongest Flutter dev loop, use both servers together:
 - `mobile-pilot-mcp`: simulator control, screenshots, gestures, app/system actions
 - `dart mcp-server`: runtime errors, widget/runtime introspection, hot reload, tests, pub.dev/package workflows
 
-The `discover_dtd_uris` tool helps discover running Dart Tooling Daemon (DTD) URIs on the local machine. These URIs are needed by the Dart MCP server for Flutter debugging features like hot reload, widget inspection, and runtime error reporting.
+Connecting the Dart MCP server to a running app needs a **DTD URI** (Dart Tooling Daemon), not a VM service URI:
 
-### Usage
+| Flutter / Dart | How to connect |
+|----------------|----------------|
+| 3.44 / 3.12 or later | Ask the Dart MCP server: `dtd` tool, `listDtdUris` then `connect` |
+| 3.35 – 3.41 / 3.9 – 3.11 | Start the app with `flutter run --print-dtd`, then pass the printed URI to `connect_dart_tooling_daemon` |
 
-```
-discover_dtd_uris timeout=3.0
-```
-
-**Output example:**
-```
-Found running Dart VM services:
-
-- ws://127.0.0.1:49778/BACzVeYQggg=/ws
-  Process: /path/to/dart
-  VM: Dart VM
-```
-
-### How it works
-
-The tool discovers DTD URIs by:
-1. Scanning running `dart`/`flutter` processes for VM service URIs in command line arguments
-2. Checking Flutter tool state files
-3. Probing dart processes with listening TCP ports
-4. Searching macOS system logs for recent VM service URIs
-
-### Integration with Dart MCP Server
-
-Pass the discovered URI to the Dart MCP server's `connect_dart_tooling_daemon` tool:
-```
-connect_dart_tooling_daemon uri="ws://127.0.0.1:49778/BACzVeYQggg=/ws"
-```
-
-This enables:
-- `hot_reload` - Apply code changes without losing app state
-- `hot_restart` - Full restart with code changes
-- `get_widget_tree` - Inspect Flutter widget hierarchy
-- `get_runtime_errors` - See errors from running app
+`dart mcp-server` needs Dart 3.9 / Flutter 3.35 or later. This server no longer ships a DTD discovery tool (`discover_dtd_uris` was removed: it returned VM service URIs, which the Dart MCP server rejects).
 
 ## MCP Resources
 
@@ -344,7 +315,7 @@ The server exposes two resources for in-context reference:
 7. **Use `scale=1.0`** only when you need to read small text
 8. **Screenshots saved to** `/tmp/mobile-pilot-mcp/screenshots/`
 9. **Use `set_status_bar`** for consistent screenshots (time="9:41", battery_level=100)
-10. **Use `discover_dtd_uris`** to find DTD URIs for Dart MCP integration
+10. **For Dart MCP**, get the DTD URI from the Dart MCP server (`dtd listDtdUris`) or `flutter run --print-dtd`
 11. **Use `dismiss_keyboard`** after typing to clear the keyboard
 12. **Use `set_appearance`** to test dark/light mode UI
 13. **Use `start_recording`/`stop_recording`** to capture interaction videos
