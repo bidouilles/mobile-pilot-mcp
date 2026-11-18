@@ -34,7 +34,7 @@ This Python MCP server enables AI assistants to automate iOS Simulators via WebD
 
 ## WebDriverAgent
 
-WDA defaults to `~/WebDriverAgent`. Override with the `WDA_PATH` environment variable. It must be running on the simulator for UI automation to work.
+WDA lives in the `appium-ios` monorepo and defaults to `~/appium-ios/packages/webdriveragent` (falls back to the old `~/WebDriverAgent` when only that exists). Override with the `WDA_PATH` environment variable. It must be running on the simulator for UI automation to work.
 
 ### Starting WDA
 
@@ -43,7 +43,7 @@ WDA defaults to `~/WebDriverAgent`. Override with the `WDA_PATH` environment var
 ./scripts/start_wda.sh <UDID>
 
 # Or manually:
-cd ~/WebDriverAgent
+cd ~/appium-ios/packages/webdriveragent
 xcodebuild -project WebDriverAgent.xcodeproj \
   -scheme WebDriverAgentRunner \
   -destination 'platform=iOS Simulator,id=<UDID>' \
@@ -387,7 +387,7 @@ The server includes a real-time dashboard at `http://localhost:8200` with:
 
 - Screenshots: `/tmp/mobile-pilot-mcp/screenshots/`
 - Recordings: `/tmp/mobile-pilot-mcp/recordings/`
-- WDA Project: `~/WebDriverAgent/` (override with `WDA_PATH` env var)
+- WDA Project: `~/appium-ios/packages/webdriveragent/` (override with `WDA_PATH` env var)
 - Simulator data: `~/Library/Developer/CoreSimulator/Devices/<UDID>/`
 - Docs: `docs/` (setup, tools reference, troubleshooting)
 - Tests: `tests/test_server_contract.py` (FastMCP contract tests)

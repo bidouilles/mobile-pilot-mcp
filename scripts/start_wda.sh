@@ -13,7 +13,15 @@
 set -e
 
 UDID="${1:-}"
-WDA_PATH="${WDA_PATH:-$HOME/WebDriverAgent}"
+# WebDriverAgent now lives in the appium-ios monorepo; ~/WebDriverAgent is the
+# old standalone repo, still used when it is the only one present.
+if [ -z "${WDA_PATH:-}" ]; then
+    if [ -d "$HOME/appium-ios/packages/webdriveragent" ] || [ ! -d "$HOME/WebDriverAgent" ]; then
+        WDA_PATH="$HOME/appium-ios/packages/webdriveragent"
+    else
+        WDA_PATH="$HOME/WebDriverAgent"
+    fi
+fi
 WDA_PORT="${WDA_PORT:-8100}"
 
 # Colors for output
@@ -49,7 +57,7 @@ usage() {
     echo "Press Ctrl+C to stop and uninstall WDA from the simulator."
     echo ""
     echo "Environment variables:"
-    echo "  WDA_PATH  Path to WebDriverAgent project (default: ~/WebDriverAgent)"
+    echo "  WDA_PATH  Path to WebDriverAgent project (default: ~/appium-ios/packages/webdriveragent)"
     echo "  WDA_PORT  Port to run WDA on (default: 8100)"
     echo ""
     echo "Example:"
@@ -129,10 +137,7 @@ if [ ! -d "$WDA_PATH" ]; then
     echo -e "${YELLOW}WebDriverAgent not found at $WDA_PATH${NC}"
     echo ""
     echo "To install WebDriverAgent:"
-    echo "  git clone https://github.com/appium/WebDriverAgent.git ~/WebDriverAgent"
-    echo "  cd ~/WebDriverAgent"
-    echo "  open WebDriverAgent.xcodeproj"
-    echo "  # Configure signing for WebDriverAgentRunner target"
+    echo "  git clone https://github.com/appium/appium-ios.git ~/appium-ios"
     echo ""
     echo "Or set WDA_PATH to your WebDriverAgent location:"
     echo "  WDA_PATH=/path/to/WebDriverAgent $0 $UDID"

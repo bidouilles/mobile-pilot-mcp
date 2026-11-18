@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 DEFAULT_WDA_PORT = 8100
 DEFAULT_TIMEOUT = 60.0
 
+# JSON page-source attributes the UI tree parser never reads. Leaving them out
+# makes the snapshot about a third smaller and faster to produce.
+SOURCE_EXCLUDED_ATTRIBUTES = "customActions,traits,nativeFrame,frame,focused"
+
 
 @dataclass
 class WDAElement:
@@ -232,7 +236,11 @@ class WDAClient:
         """
         session_id = await self._ensure_session()
         if format == "json":
-            data = await self._request("GET", f"/session/{session_id}/source?format=json")
+            data = await self._request(
+                "GET",
+                f"/session/{session_id}/source?format=json"
+                f"&excluded_attributes={SOURCE_EXCLUDED_ATTRIBUTES}",
+            )
             return data.get("value", {})
         else:
             data = await self._request("GET", f"/session/{session_id}/source")
@@ -557,7 +565,7 @@ class WDAClient:
         """Press a hardware button.
 
         Args:
-            button: 'home', 'volumeUp', 'volumeDown'
+            button: 'home' or 'action'; 'volumeUp'/'volumeDown' on real devices only
         """
         session_id = await self._ensure_session()
         await self._request(
