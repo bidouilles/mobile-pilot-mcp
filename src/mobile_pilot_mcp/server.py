@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -367,14 +368,15 @@ async def get_screenshot(
         # Fix landscape screenshots: simctl captures the raw framebuffer
         # in portrait orientation, so landscape content appears rotated.
         if img.height > img.width:
+            # Ask WDA even when start_bridge was not called yet; without it a
+            # landscape device would yield a sideways screenshot.
             try:
-                client = wda_clients.get(device_id)
-                if client:
-                    orientation = (await client.get_orientation()).upper()
-                    if orientation in ("LANDSCAPE", "LANDSCAPE_LEFT"):
-                        img = img.transpose(Image.Transpose.ROTATE_90)
-                    elif orientation == "LANDSCAPE_RIGHT":
-                        img = img.transpose(Image.Transpose.ROTATE_270)
+                client = get_wda_client(device_id)
+                orientation = (await asyncio.wait_for(client.get_orientation(), 3.0)).upper()
+                if orientation in ("LANDSCAPE", "LANDSCAPE_LEFT"):
+                    img = img.transpose(Image.Transpose.ROTATE_90)
+                elif orientation == "LANDSCAPE_RIGHT":
+                    img = img.transpose(Image.Transpose.ROTATE_270)
             except Exception as e:
                 logger.debug("Could not query orientation for rotation: %s", e)
 
@@ -490,6 +492,52 @@ async def tap(
 
     else:
         return "Please provide index, predicate, or x/y coordinates"
+
+
+# === Wait ===
+
+
+@mcp.tool
+async def wait_for_element(
+    device_id: Annotated[str, Field(description="Simulator UDID")],
+    predicate: Annotated[
+        dict[str, Any],
+        Field(description='Element predicate, e.g. {"text": "Done"} or {"identifier": "save"}'),
+    ],
+    timeout: Annotated[float, Field(ge=0, le=120, description="Seconds to wait")] = 10.0,
+    gone: Annotated[
+        bool,
+        Field(description="Wait for the element to disappear instead of appear"),
+    ] = False,
+) -> str:
+    """Wait until an element appears (or disappears). Use after navigation instead of polling.
+
+    When the element is found, its index is valid for `tap index=N` right away.
+    """
+    client = get_wda_client(device_id)
+    parser = UITreeParser()
+    started = time.monotonic()
+
+    while True:
+        source = await client.get_source(format="json")
+        _, elements = parser.parse(source, only_visible=True)
+        elem = find_element_by_predicate(elements, predicate)
+        waited = time.monotonic() - started
+
+        if gone and elem is None:
+            return f"Element gone after {waited:.1f}s: {predicate}"
+        if not gone and elem is not None:
+            _last_ui_elements[device_id] = elements
+            text = f' "{elem.display_text}"' if elem.display_text else ""
+            return (
+                f"Found [{elem.index}] {elem.element_type}{text} "
+                f"at ({elem.center_x}, {elem.center_y}) after {waited:.1f}s"
+            )
+        if waited >= timeout:
+            state = "still present" if gone else "not found"
+            return f"Timed out after {waited:.1f}s: element {state}: {predicate}"
+
+        await asyncio.sleep(0.3)
 
 
 # === Type Text ===
@@ -609,6 +657,47 @@ async def terminate_app(
 
 
 @mcp.tool
+async def get_app_state(
+    device_id: Annotated[str, Field(description="Simulator UDID")],
+    bundle_id: Annotated[str, Field(description="App bundle ID")],
+) -> str:
+    """Report whether an app is installed, running in the background, or in the foreground."""
+    states = {
+        0: "not installed",
+        1: "not running (or not installed)",
+        2: "running in background (suspended)",
+        3: "running in background",
+        4: "running in foreground",
+    }
+    client = get_wda_client(device_id)
+    state = await client.get_app_state(bundle_id)
+    return f"{bundle_id}: {states.get(state, f'unknown state {state}')}"
+
+
+@mcp.tool
+async def install_app(
+    device_id: Annotated[str, Field(description="Simulator UDID")],
+    app_path: Annotated[str, Field(description="Path to a simulator .app bundle on this Mac")],
+) -> str:
+    """Install a simulator build (.app) on the simulator."""
+    path = Path(app_path).expanduser()
+    if not path.exists():
+        return f"App not found: {path}"
+    await simulator_manager.install_app(device_id, path)
+    return f"Installed: {path}"
+
+
+@mcp.tool
+async def uninstall_app(
+    device_id: Annotated[str, Field(description="Simulator UDID")],
+    bundle_id: Annotated[str, Field(description="App bundle ID")],
+) -> str:
+    """Uninstall an app from the simulator (its data is removed too)."""
+    await simulator_manager.uninstall_app(device_id, bundle_id)
+    return f"Uninstalled: {bundle_id}"
+
+
+@mcp.tool
 async def list_apps(device_id: Annotated[str, Field(description="Simulator UDID")]) -> str:
     """List installed applications on the simulator."""
     apps = await simulator_manager.list_apps(device_id)
@@ -656,6 +745,58 @@ async def set_location(
     """Set the simulator's GPS location."""
     await simulator_manager.set_location(device_id, latitude, longitude)
     return f"Location set to ({latitude}, {longitude})"
+
+
+@mcp.tool
+async def set_orientation(
+    device_id: Annotated[str, Field(description="Simulator UDID")],
+    orientation: Annotated[Literal["PORTRAIT", "LANDSCAPE"], Field(description="Orientation")],
+) -> str:
+    """Rotate the device to portrait or landscape."""
+    client = get_wda_client(device_id)
+    await client.set_orientation(orientation)
+    return f"Orientation set to: {orientation}"
+
+
+@mcp.tool
+async def send_push_notification(
+    device_id: Annotated[str, Field(description="Simulator UDID")],
+    bundle_id: Annotated[str, Field(description="Bundle ID of the app that receives the push")],
+    title: Annotated[str | None, Field(description="Alert title")] = None,
+    body: Annotated[str | None, Field(description="Alert body")] = None,
+    payload: Annotated[
+        dict[str, Any] | None,
+        Field(description='Full APNs payload, e.g. {"aps": {...}}; replaces title and body'),
+    ] = None,
+) -> str:
+    """Deliver a simulated push notification to an app."""
+    if payload is None:
+        if title is None and body is None:
+            return "Please provide title/body or a payload"
+        alert = {k: v for k, v in (("title", title), ("body", body)) if v is not None}
+        payload = {"aps": {"alert": alert}}
+    await simulator_manager.push_notification(device_id, bundle_id, payload)
+    return f"Push notification sent to {bundle_id}"
+
+
+@mcp.tool
+async def add_media(
+    device_id: Annotated[str, Field(description="Simulator UDID")],
+    media_path: Annotated[str, Field(description="Path to a photo or video on this Mac")],
+) -> str:
+    """Add a photo or video to the simulator's Photos library."""
+    path = Path(media_path).expanduser()
+    if not path.exists():
+        return f"File not found: {path}"
+    await simulator_manager.add_media(device_id, path)
+    return f"Added to Photos: {path}"
+
+
+@mcp.tool
+async def clear_keychain(device_id: Annotated[str, Field(description="Simulator UDID")]) -> str:
+    """Reset the simulator's keychain (signs apps out of anything stored there)."""
+    await simulator_manager.clear_keychain(device_id)
+    return "Keychain cleared"
 
 
 # === Clipboard ===
@@ -1203,6 +1344,7 @@ API_REFERENCE = """# Mobile Pilot MCP API Reference
 |------|-------------|
 | get_screenshot | Capture screenshot |
 | get_ui_tree | Get accessibility tree with element indices |
+| wait_for_element | Wait until an element appears or disappears |
 | tap | Tap element by index, predicate, or coordinates |
 | type_text | Type text (optionally tap element first) |
 | swipe | Swipe gesture by direction or coordinates |
@@ -1217,6 +1359,9 @@ API_REFERENCE = """# Mobile Pilot MCP API Reference
 | launch_app | Launch app by bundle ID |
 | terminate_app | Terminate app |
 | list_apps | List installed apps |
+| get_app_state | Check if an app is installed / running |
+| install_app | Install a simulator .app |
+| uninstall_app | Uninstall an app |
 | open_url | Open URL in Safari |
 | press_button | Press hardware button |
 
@@ -1225,6 +1370,10 @@ API_REFERENCE = """# Mobile Pilot MCP API Reference
 | Tool | Description |
 |------|-------------|
 | set_location | Set GPS location |
+| set_orientation | Rotate to portrait or landscape |
+| send_push_notification | Deliver a simulated push notification |
+| add_media | Add a photo or video to Photos |
+| clear_keychain | Reset the keychain |
 | get_clipboard | Get clipboard content |
 | set_clipboard | Set clipboard content |
 | get_window_size | Get screen dimensions |
@@ -1331,7 +1480,7 @@ tap device_id="..." x=200 y=400
 
 1. **Always get UI tree first** before tapping by index
 2. **Use predicates** for more robust automation
-3. **Add delays** after navigation for UI to settle
+3. **Use wait_for_element** after navigation instead of fixed delays
 4. **Use simctl** for screenshots (faster than WDA)
 5. **Check alerts** that might block automation
 """

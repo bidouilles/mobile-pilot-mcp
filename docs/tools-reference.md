@@ -17,6 +17,7 @@
 |------|-------------|
 | `get_screenshot` | Capture screenshot with optimization options |
 | `get_ui_tree` | Get accessibility tree with indices |
+| `wait_for_element` | Wait until an element appears or disappears |
 | `tap` | Tap by index, predicate, or coordinates |
 | `type_text` | Type text (optional predicate target first) |
 | `swipe` | Swipe by direction or coordinates |
@@ -32,6 +33,9 @@
 | `launch_app` | Launch app by bundle ID |
 | `terminate_app` | Terminate app |
 | `list_apps` | List installed apps |
+| `get_app_state` | Check if an app is installed / running |
+| `install_app` | Install a simulator `.app` |
+| `uninstall_app` | Uninstall an app |
 | `open_url` | Open URL in Safari |
 | `press_button` | Press hardware button |
 
@@ -40,6 +44,10 @@
 | Tool | Description |
 |------|-------------|
 | `set_location` | Set GPS location |
+| `set_orientation` | Rotate to portrait or landscape |
+| `send_push_notification` | Deliver a simulated push notification |
+| `add_media` | Add a photo or video to Photos |
+| `clear_keychain` | Reset the keychain |
 | `get_clipboard` | Get clipboard content |
 | `set_clipboard` | Set clipboard content |
 | `get_window_size` | Get screen dimensions |
