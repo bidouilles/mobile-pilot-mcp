@@ -19,7 +19,6 @@ def test_fastmcp_tools_registered() -> None:
         "start_bridge",
         "get_screenshot",
         "tap",
-        "discover_dtd_uris",
         "wait_for_element",
         "get_app_state",
         "install_app",
@@ -30,6 +29,8 @@ def test_fastmcp_tools_registered() -> None:
         "clear_keychain",
     }
     assert expected_tools.issubset(tool_names)
+    # Removed: it returned VM service URIs, which the Dart MCP server rejects.
+    assert "discover_dtd_uris" not in tool_names
 
     start_bridge_tool = asyncio.run(server_module.mcp.get_tool("start_bridge"))
     assert start_bridge_tool.name == "start_bridge"
