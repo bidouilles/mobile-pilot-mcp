@@ -24,30 +24,31 @@ Optional one-step setup:
 
 WDA must be running for UI automation.
 
-Clone WebDriverAgent (one-time):
+Clone WebDriverAgent (one-time). It lives in the `appium-ios` monorepo; the old
+`appium/WebDriverAgent` repo stopped at v16.15.3. Tested with WDA 17.0.11.
 
 ```bash
-git clone https://github.com/appium/WebDriverAgent.git ~/WebDriverAgent
+git clone https://github.com/appium/appium-ios.git ~/appium-ios
 ```
 
 ```bash
-# Option A: helper script (default path: ~/WebDriverAgent)
+# Option A: helper script (default path: ~/appium-ios/packages/webdriveragent)
 ./scripts/start_wda.sh <UDID>
 
 # If no UDID is provided, the script shows device choices
 ./scripts/start_wda.sh
 
 # Optional explicit form (same as default):
-WDA_PATH=~/WebDriverAgent ./scripts/start_wda.sh <UDID>
+WDA_PATH=~/appium-ios/packages/webdriveragent ./scripts/start_wda.sh <UDID>
 
 # If WebDriverAgent is elsewhere, set the actual path:
-WDA_PATH=../WebDriverAgent ./scripts/start_wda.sh <UDID>
+WDA_PATH=../appium-ios/packages/webdriveragent ./scripts/start_wda.sh <UDID>
 ```
 
 Manual `xcodebuild` example:
 
 ```bash
-xcodebuild -project ~/WebDriverAgent/WebDriverAgent.xcodeproj \
+xcodebuild -project ~/appium-ios/packages/webdriveragent/WebDriverAgent.xcodeproj \
   -scheme WebDriverAgentRunner \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
   test

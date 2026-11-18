@@ -84,8 +84,11 @@ echo -e "${GREEN}Dependencies installed${NC}"
 # Check for WebDriverAgent
 echo ""
 echo -n "Checking for WebDriverAgent... "
-if [ -d "$HOME/WebDriverAgent" ]; then
-    echo -e "${GREEN}Found at ~/WebDriverAgent${NC}"
+if [ -d "$HOME/appium-ios/packages/webdriveragent" ]; then
+    echo -e "${GREEN}Found at ~/appium-ios/packages/webdriveragent${NC}"
+    WDA_FOUND=true
+elif [ -d "$HOME/WebDriverAgent" ]; then
+    echo -e "${GREEN}Found at ~/WebDriverAgent (old standalone repo)${NC}"
     WDA_FOUND=true
 else
     echo -e "${YELLOW}Not found${NC}"
@@ -106,9 +109,8 @@ echo ""
 
 if [ "$WDA_FOUND" = false ]; then
     echo "2. Install WebDriverAgent (required for UI automation):"
-    echo "   ${BLUE}git clone https://github.com/appium/WebDriverAgent.git ~/WebDriverAgent${NC}"
-    echo "   ${BLUE}cd ~/WebDriverAgent && open WebDriverAgent.xcodeproj${NC}"
-    echo "   Configure signing, then run:"
+    echo "   ${BLUE}git clone https://github.com/appium/appium-ios.git ~/appium-ios${NC}"
+    echo "   Then run:"
     echo "   ${BLUE}./scripts/start_wda.sh <UDID>${NC}"
     echo ""
     echo "3. Run the MCP server:"

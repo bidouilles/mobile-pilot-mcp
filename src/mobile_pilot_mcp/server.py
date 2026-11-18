@@ -637,11 +637,11 @@ async def open_url(
 async def press_button(
     device_id: Annotated[str, Field(description="Simulator UDID")],
     button: Annotated[
-        Literal["home", "volumeUp", "volumeDown"],
-        Field(description="Button to press"),
+        Literal["home", "action", "volumeUp", "volumeDown"],
+        Field(description="Button to press (volume buttons need a real device)"),
     ],
 ) -> str:
-    """Press a hardware button (home, volumeUp, volumeDown)."""
+    """Press a hardware button (home, action; volume buttons on real devices only)."""
     client = get_wda_client(device_id)
     await client.press_button(button)
     return f"Pressed button: {button}"

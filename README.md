@@ -17,6 +17,23 @@ Mobile Pilot MCP gives AI assistants a control plane for simulator automation, v
 - Flutter-first workflow when paired with Dart MCP server
 - Cross-platform direction: iOS today, Android coming soon
 
+## WebDriverAgent
+
+UI automation needs [WebDriverAgent](https://github.com/appium/appium-ios/tree/main/packages/webdriveragent) (WDA) running on the simulator. Get it once:
+
+```bash
+git clone https://github.com/appium/appium-ios.git ~/appium-ios
+```
+
+`./scripts/start_wda.sh` builds and runs it from `~/appium-ios/packages/webdriveragent`; set `WDA_PATH` if you cloned it elsewhere.
+
+| WDA version | Status |
+|-------------|--------|
+| 17.0.11 | Supported and recommended (tested on iOS 26.5 with Xcode 26.6) |
+| 11.1.4 | Still works, no longer tested |
+
+WDA moved in late 2026: the old `appium/WebDriverAgent` repo stopped at v16.15.3. An existing `~/WebDriverAgent` checkout keeps working, but new fixes only land in `appium-ios`.
+
 ## Quick Start (4 Commands)
 
 ```bash
