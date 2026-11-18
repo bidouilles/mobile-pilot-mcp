@@ -64,16 +64,24 @@ WDA_HOST = os.environ.get("WDA_HOST", "127.0.0.1")
 
 def get_wda_client(
     device_id: str,
-    port: int = DEFAULT_WDA_PORT,
+    port: int | None = None,
     host: str | None = None,
 ) -> WDAClient:
-    """Get or create a WDA client for a device."""
+    """Get or create a WDA client for a device.
+
+    Called without host/port, it returns the client the device was last bridged
+    with, so tools keep using the address given to `start_bridge`.
+    """
+    if host is None and port is None and device_id in wda_clients:
+        return wda_clients[device_id]
+
     actual_host = host or WDA_HOST
-    key = f"{device_id}:{actual_host}:{port}"
+    actual_port = port or DEFAULT_WDA_PORT
+    key = f"{device_id}:{actual_host}:{actual_port}"
 
     if key not in wda_clients:
-        wda_clients[key] = WDAClient(host=actual_host, port=port)
-        wda_clients[device_id] = wda_clients[key]
+        wda_clients[key] = WDAClient(host=actual_host, port=actual_port)
+    wda_clients[device_id] = wda_clients[key]
 
     return wda_clients[key]
 
@@ -199,6 +207,24 @@ async def lifespan(mcp: FastMCP):
         if dashboard_runner is not None:
             await stop_dashboard(dashboard_runner)
 
+        # Finalize any recording still running so the .mov is not left corrupt.
+        try:
+            await simulator_manager.stop_all_recordings()
+        except Exception as exc:
+            logger.debug("Error stopping recordings: %s", exc)
+
+        # Ensure HTTP clients are released when the server exits.
+        unique_clients = {id(client): client for client in wda_clients.values()}.values()
+        for client in unique_clients:
+            try:
+                await client.close()
+            except Exception as exc:
+                logger.debug("Error closing WDA client: %s", exc)
+
+        wda_clients.clear()
+        _last_ui_elements.clear()
+        _recording_paths.clear()
+
 
 # === Create FastMCP Server ===
 
@@ -265,14 +291,29 @@ async def shutdown_simulator(
 @mcp.tool
 async def start_bridge(
     device_id: Annotated[str, Field(description="Simulator UDID")],
-    port: Annotated[int, Field(description="WDA port")] = DEFAULT_WDA_PORT,
-    host: Annotated[str | None, Field(description="WDA host (default: WDA_HOST env var)")] = None,
+    port: Annotated[
+        int | None,
+        Field(description="WDA port (default: the port already bridged, else 8100)"),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="WDA host (default: the host already bridged, else WDA_HOST env var)"),
+    ] = None,
 ) -> str:
     """Check WebDriverAgent connection (WDA must be running separately via xcodebuild)."""
-    actual_host = host or WDA_HOST
-    client = get_wda_client(device_id, port, actual_host)
+    previous = wda_clients.get(device_id)
+    client = get_wda_client(device_id, port, host)
+    address = client.base_url.removeprefix("http://")
 
-    if await client.health_check():
+    healthy = await client.health_check()
+    if not healthy:
+        # Keep a failed attempt from replacing the bridge the device already had.
+        if previous is not None:
+            wda_clients[device_id] = previous
+        else:
+            wda_clients.pop(device_id, None)
+
+    if healthy:
         await client.create_session()
 
         # Update dashboard with device info
@@ -284,16 +325,16 @@ async def start_bridge(
                 "ios_version": device.ios_version,
                 "state": device.state.value,
                 "wda_connected": True,
-                "wda_host": f"{actual_host}:{port}",
+                "wda_host": address,
             })
 
         return (
-            f"WebDriverAgent is running at {actual_host}:{port}. "
+            f"WebDriverAgent is running at {address}. "
             f"Session created (ID: {client.session_id})."
         )
     else:
         return (
-            f"WebDriverAgent is not responding at {actual_host}:{port}.\n\n"
+            f"WebDriverAgent is not responding at {address}.\n\n"
             "To start WDA, run:\n"
             "  xcodebuild -project WebDriverAgent.xcodeproj "
             "-scheme WebDriverAgentRunner -destination "
@@ -310,7 +351,7 @@ async def start_bridge(
 @mcp.tool
 async def get_screenshot(
     device_id: Annotated[str, Field(description="Simulator UDID")],
-    scale: Annotated[float, Field(description="Scale factor 0.1-1.0")] = 0.5,
+    scale: Annotated[float, Field(ge=0.1, le=1.0, description="Scale factor 0.1-1.0")] = 0.5,
     format: Annotated[Literal["png", "jpeg"], Field(description="Image format")] = "jpeg",
     quality: Annotated[int, Field(ge=1, le=100, description="JPEG quality 1-100")] = 85,
 ) -> str:
@@ -421,7 +462,7 @@ async def tap(
             _, elements = parser.parse(source, only_visible=True)
             _last_ui_elements[device_id] = elements
 
-        if index >= len(elements):
+        if index < 0 or index >= len(elements):
             return f"Invalid index {index}. Max index is {len(elements) - 1}"
 
         elem = elements[index]
@@ -891,12 +932,15 @@ async def start_recording(
 @mcp.tool
 async def stop_recording(device_id: Annotated[str, Field(description="Simulator UDID")]) -> str:
     """Stop screen recording and save the video file."""
-    if not simulator_manager.is_recording(device_id):
-        return "No recording in progress"
-
     filepath = _recording_paths.pop(device_id, None)
+    exit_code = simulator_manager.recording_exit_code(device_id)
     stopped = await simulator_manager.stop_recording(device_id)
 
+    if stopped and exit_code is not None:
+        return (
+            f"The recorder had already exited on its own (code {exit_code}), "
+            f"so the video may be missing or incomplete: {filepath}"
+        )
     if stopped and filepath and filepath.exists():
         file_size = filepath.stat().st_size / 1024
         return f"Screen recording saved: {filepath}\nSize: {file_size:.1f}KB"
@@ -958,9 +1002,19 @@ async def discover_dtd_uris(
             "vm_name": vm_name or "Dart VM",
         })
 
+    async def run_command(*cmd: str, timeout: int) -> subprocess.CompletedProcess[str]:
+        return await asyncio.to_thread(
+            subprocess.run,
+            list(cmd),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+
     # Step 1: Look for VM service URIs in process command lines
     try:
-        result = subprocess.run(["ps", "aux"], capture_output=True, text=True, timeout=10)
+        result = await run_command("ps", "aux", timeout=10)
         uri_pattern = re.compile(
             r'((?:ws|http)s?://(?:127\.0\.0\.1|localhost):\d+/[A-Za-z0-9+/]+=*/?)(?:ws)?'
         )
@@ -1032,10 +1086,7 @@ async def discover_dtd_uris(
 
     # Step 3: Find dart processes with listening ports and probe them
     try:
-        result = subprocess.run(
-            ["lsof", "-iTCP", "-sTCP:LISTEN", "-n", "-P"],
-            capture_output=True, text=True, timeout=10,
-        )
+        result = await run_command("lsof", "-iTCP", "-sTCP:LISTEN", "-n", "-P", timeout=10)
 
         candidate_ports: list[tuple[int, str]] = []
 
@@ -1074,15 +1125,16 @@ async def discover_dtd_uris(
 
     # Step 4: Check macOS Console logs
     try:
-        result = subprocess.run(
-            [
-                "log", "show",
-                "--predicate",
-                'processImagePath CONTAINS "dart" OR processImagePath CONTAINS "flutter"',
-                "--last", "5m",
-                "--style", "compact",
-            ],
-            capture_output=True, text=True, timeout=15,
+        result = await run_command(
+            "log",
+            "show",
+            "--predicate",
+            'processImagePath CONTAINS "dart" OR processImagePath CONTAINS "flutter"',
+            "--last",
+            "5m",
+            "--style",
+            "compact",
+            timeout=15,
         )
 
         uri_pattern = re.compile(
@@ -1307,7 +1359,9 @@ server = mcp
 
 def main():
     """Run the MCP server."""
-    mcp.run()
+    # Codex connects over stdio; any non-protocol stdout output can break the
+    # MCP handshake, so disable FastMCP banner output explicitly.
+    mcp.run(transport="stdio", show_banner=False)
 
 
 if __name__ == "__main__":

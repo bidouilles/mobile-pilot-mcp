@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import re
+import signal
 import subprocess
 from dataclasses import dataclass
 from enum import Enum
@@ -86,6 +87,7 @@ class SimulatorManager:
         self._devices_cache: dict[str, SimulatorDevice] = {}
         self._cache_timestamp: float = 0
         self._cache_ttl: float = 5.0  # Cache devices for 5 seconds
+        self._recording_processes: dict[str, asyncio.subprocess.Process] = {}
 
     async def _run_simctl(
         self,
@@ -146,6 +148,8 @@ class SimulatorManager:
         except json.JSONDecodeError as e:
             raise SimulatorError(f"Failed to parse simctl output: {e}") from e
 
+        # Rebuild cache on refresh to avoid stale devices lingering.
+        self._devices_cache = {}
         devices: list[SimulatorDevice] = []
         for runtime, device_list in data.get("devices", {}).items():
             for device_data in device_list:
@@ -467,8 +471,6 @@ class SimulatorManager:
 
     # === Screen Recording ===
 
-    _recording_processes: dict[str, asyncio.subprocess.Process] = {}
-
     async def start_recording(
         self,
         udid: str,
@@ -482,8 +484,12 @@ class SimulatorManager:
             output_path: Path to save the video file (.mov)
             codec: Video codec ('h264' or 'hevc', default: hevc)
         """
-        if udid in self._recording_processes:
-            raise SimulatorError(f"Recording already in progress for {udid}")
+        existing = self._recording_processes.get(udid)
+        if existing is not None:
+            if existing.returncode is None:
+                raise SimulatorError(f"Recording already in progress for {udid}")
+            # The previous recorder exited on its own; forget it.
+            del self._recording_processes[udid]
 
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -491,11 +497,21 @@ class SimulatorManager:
         cmd = ["xcrun", "simctl", "io", udid, "recordVideo", f"--codec={codec}", str(output_path)]
         logger.debug(f"Starting recording: {' '.join(cmd)}")
 
+        # Output is discarded: an unread pipe would eventually block the recorder.
         proc = await asyncio.create_subprocess_exec(
             *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
         )
+
+        # simctl exits at once when it cannot record (device not booted, bad codec).
+        try:
+            exit_code = await asyncio.wait_for(asyncio.shield(proc.wait()), timeout=0.5)
+        except asyncio.TimeoutError:
+            pass
+        else:
+            raise SimulatorError(f"Recording failed to start for {udid} (exit code {exit_code})")
+
         self._recording_processes[udid] = proc
         logger.info(f"Recording started for {udid}: {output_path}")
 
@@ -512,17 +528,31 @@ class SimulatorManager:
         if not proc:
             return False
 
-        # Send SIGINT to gracefully stop recording
-        proc.send_signal(2)  # SIGINT
+        if proc.returncode is None:
+            # SIGINT makes simctl finalize the video file.
+            proc.send_signal(signal.SIGINT)
 
-        try:
-            await asyncio.wait_for(proc.wait(), timeout=30.0)
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.wait()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=30.0)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
 
         logger.info(f"Recording stopped for {udid}")
         return True
+
+    async def stop_all_recordings(self) -> None:
+        """Stop every recording in progress (used at server shutdown)."""
+        for udid in list(self._recording_processes):
+            try:
+                await self.stop_recording(udid)
+            except Exception as exc:
+                logger.debug("Error stopping recording for %s: %s", udid, exc)
+
+    def recording_exit_code(self, udid: str) -> int | None:
+        """Exit code of a tracked recorder that already exited, else None."""
+        proc = self._recording_processes.get(udid)
+        return proc.returncode if proc is not None else None
 
     def is_recording(self, udid: str) -> bool:
         """Check if recording is in progress for a device."""

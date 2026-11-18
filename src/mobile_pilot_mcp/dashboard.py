@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
+import secrets
 import time
 import webbrowser
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from aiohttp import WSMsgType, web
 
@@ -19,7 +22,9 @@ logger = logging.getLogger(__name__)
 
 # Dashboard configuration (can be overridden via environment variables)
 DASHBOARD_PORT = int(os.environ.get("DASHBOARD_PORT", "8200"))
+DASHBOARD_HOST = os.environ.get("DASHBOARD_HOST", "127.0.0.1")
 DASHBOARD_AUTO_OPEN = os.environ.get("DASHBOARD_AUTO_OPEN", "true").lower() in ("true", "1", "yes")
+DASHBOARD_AUTH_TOKEN = os.environ.get("DASHBOARD_AUTH_TOKEN", "").strip()
 
 
 @dataclass
@@ -210,6 +215,15 @@ async def handle_screenshot(request: web.Request) -> web.Response:
 async def handle_action(request: web.Request) -> web.Response:
     """Execute a quick action (tool call) from the dashboard."""
     try:
+        if DASHBOARD_AUTH_TOKEN:
+            provided_token = request.headers.get("X-Dashboard-Token", "")
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                provided_token = auth_header[7:].strip() or provided_token
+
+            if not secrets.compare_digest(provided_token, DASHBOARD_AUTH_TOKEN):
+                return web.json_response({"success": False, "error": "Unauthorized"}, status=401)
+
         data = await request.json()
         tool = data.get("tool")
         args = data.get("args", {})
@@ -263,9 +277,55 @@ async def handle_websocket(request: web.Request) -> web.WebSocketResponse:
     return ws
 
 
+def _is_loopback(hostname: str | None) -> bool:
+    """True for localhost and loopback IP addresses."""
+    if not hostname:
+        return False
+    if hostname.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def _is_request_allowed(request: web.Request) -> bool:
+    """Reject requests made by other websites.
+
+    Browsers do not apply the same-origin policy to WebSockets or to simple
+    cross-site POSTs, so without this any page open in the user's browser could
+    read the tool-call log or run tools through the dashboard.
+    """
+    host = request.headers.get("Host", "")
+
+    origin = request.headers.get("Origin")
+    if origin is not None and urlsplit(origin).netloc.lower() != host.lower():
+        return False
+
+    # When bound to loopback, refuse foreign Host names (DNS rebinding).
+    # A non-loopback bind cannot be checked this way: set DASHBOARD_AUTH_TOKEN.
+    if _is_loopback(DASHBOARD_HOST):
+        try:
+            hostname = urlsplit(f"//{host}").hostname
+        except ValueError:
+            return False
+        if not _is_loopback(hostname):
+            return False
+
+    return True
+
+
+@web.middleware
+async def same_origin_middleware(request: web.Request, handler: Any) -> web.StreamResponse:
+    """Apply the same-origin check to every dashboard route."""
+    if not _is_request_allowed(request):
+        return web.Response(status=403, text="Forbidden: cross-origin request")
+    return await handler(request)
+
+
 def create_dashboard_app() -> web.Application:
     """Create the dashboard web application."""
-    app = web.Application()
+    app = web.Application(middlewares=[same_origin_middleware])
     app.router.add_get("/", handle_index)
     app.router.add_get("/api/state", handle_api_state)
     app.router.add_post("/api/action", handle_action)
@@ -275,25 +335,35 @@ def create_dashboard_app() -> web.Application:
 
 
 async def start_dashboard(
+    host: str = DASHBOARD_HOST,
     port: int = DASHBOARD_PORT,
     auto_open: bool = DASHBOARD_AUTO_OPEN,
 ) -> web.AppRunner:
     """Start the dashboard server.
 
     Args:
+        host: Host/interface to bind the dashboard on.
+            Defaults to 127.0.0.1 for local-only access.
         port: Port to run dashboard on
         auto_open: Whether to auto-open browser.
             Set `DASHBOARD_AUTO_OPEN=false` to disable.
     """
+    if not _is_loopback(host) and not DASHBOARD_AUTH_TOKEN:
+        logger.warning(
+            "Dashboard is bound to %s without DASHBOARD_AUTH_TOKEN: "
+            "anyone who can reach it can run tools on the simulator",
+            host,
+        )
+
     app = create_dashboard_app()
     runner = web.AppRunner(app)
     await runner.setup()
 
-    site = web.TCPSite(runner, "0.0.0.0", port)
+    site = web.TCPSite(runner, host, port)
     await site.start()
 
     url = f"http://localhost:{port}"
-    logger.info("Dashboard started at %s", url)
+    logger.info("Dashboard started at %s (bound to %s)", url, host)
 
     # Auto-open browser
     if auto_open:
