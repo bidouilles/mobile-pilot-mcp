@@ -16,9 +16,10 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any, Iterator, Literal
+from typing import Annotated, Any, Literal
 
 from fastmcp import FastMCP
+from fastmcp.server.middleware import Middleware, MiddlewareContext
 from pydantic import Field
 
 from .dashboard import DASHBOARD_PORT, dashboard_state, start_dashboard, stop_dashboard
@@ -54,7 +55,6 @@ simulator_manager = SimulatorManager()
 wda_clients: dict[str, WDAClient] = {}
 _last_ui_elements: dict[str, list] = {}
 _recording_paths: dict[str, Path] = {}
-_dashboard_wrapped_tools: set[str] = set()
 
 # WDA host configuration
 WDA_HOST = os.environ.get("WDA_HOST", "127.0.0.1")
@@ -120,37 +120,33 @@ def _complete_tool_call(tool_call, result: str | None = None, error: str | None 
     dashboard_state.complete_tool_call(tool_call, result=result, error=error)
 
 
-# === Lifespan for Dashboard ===
+# === Dashboard Tracking ===
 
 
-def _wrap_tool_with_tracking(tool_name: str, original_fn):
-    """Wrap a tool function to track calls in the dashboard."""
-    import functools
+def _result_text(result: Any) -> str | None:
+    """Text of a tool result, for the dashboard log."""
+    if result is None or isinstance(result, str):
+        return result
+    parts = [c.text for c in getattr(result, "content", None) or [] if hasattr(c, "text")]
+    return "\n".join(parts) if parts else str(result)
 
-    @functools.wraps(original_fn)
-    async def tracked_fn(*args, **kwargs):
-        # Track the call
-        tool_call = _track_tool_call(tool_name, kwargs)
+
+class DashboardTrackingMiddleware(Middleware):
+    """Shows every MCP tool call in the dashboard."""
+
+    async def on_call_tool(self, context: MiddlewareContext, call_next: Any) -> Any:
+        message = context.message
+        tool_call = _track_tool_call(message.name, dict(message.arguments or {}))
         try:
-            result = await original_fn(*args, **kwargs)
-            _complete_tool_call(tool_call, result=result)
-            return result
+            result = await call_next(context)
         except Exception as e:
             _complete_tool_call(tool_call, error=str(e))
             raise
+        _complete_tool_call(tool_call, result=_result_text(result))
+        return result
 
-    return tracked_fn
 
-
-def _iter_named_tools(tools: Any) -> Iterator[tuple[str, Any]]:
-    """Yield (name, tool) pairs from FastMCP tool collections across versions."""
-    if isinstance(tools, dict):
-        yield from tools.items()
-        return
-
-    for idx, tool in enumerate(tools):
-        name = getattr(tool, "name", f"tool_{idx}")
-        yield name, tool
+# === Lifespan for Dashboard ===
 
 
 @asynccontextmanager
@@ -166,29 +162,25 @@ async def lifespan(mcp: FastMCP):
     logger.info(f"Log level: {LOG_LEVEL}")
     logger.info("=" * 60)
 
-    # Wrap all registered tools with dashboard tracking
-    # This makes MCP protocol calls appear in the dashboard
-    tools = await mcp.get_tools()
-    wrapped_count = 0
-    for tool_name, tool in _iter_named_tools(tools):
-        if tool_name in _dashboard_wrapped_tools:
-            continue
-
-        original_fn = tool.fn
-        tool.fn = _wrap_tool_with_tracking(tool_name, original_fn)
-        _dashboard_wrapped_tools.add(tool_name)
-        wrapped_count += 1
-    logger.info(f"Wrapped {wrapped_count} tools with dashboard tracking")
-
-    # Wire up tool executor for dashboard quick actions
+    # Dashboard quick actions call the tool function directly (they do not go
+    # through the MCP protocol), so they are tracked here, not by the middleware.
     async def execute_tool_from_dashboard(name: str, args: dict[str, Any]) -> str:
         """Execute a tool from dashboard quick actions."""
-        # Tools are already wrapped, so just call the function directly.
         try:
             tool = await mcp.get_tool(name)
         except Exception as exc:
             raise ValueError(f"Unknown tool: {name}") from exc
-        return await tool.fn(**args)
+        if tool is None:
+            raise ValueError(f"Unknown tool: {name}")
+
+        tool_call = _track_tool_call(name, args)
+        try:
+            result = await tool.fn(**args)
+        except Exception as exc:
+            _complete_tool_call(tool_call, error=str(exc))
+            raise
+        _complete_tool_call(tool_call, result=_result_text(result))
+        return result
 
     dashboard_state.tool_executor = execute_tool_from_dashboard
 
@@ -232,6 +224,7 @@ async def lifespan(mcp: FastMCP):
 mcp = FastMCP(
     "mobile-pilot-mcp",
     lifespan=lifespan,
+    middleware=[DashboardTrackingMiddleware()],
 )
 
 

@@ -94,7 +94,7 @@ pytest tests/test_server_contract.py
 
 ## Coding Style & Conventions
 
-- Target runtime: Python 3.10+.
+- Target runtime: Python 3.11+.
 - Follow Ruff settings from `pyproject.toml` (`line-length = 100`, rules `E,F,I,W`).
 - Use type hints and `from __future__ import annotations` for new modules.
 - Naming: `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_CASE` for constants.
@@ -353,12 +353,12 @@ The server exposes two resources for in-context reference:
 
 ## Dependencies
 
-- `fastmcp==2.14.4` - FastMCP SDK (pinned for stability; see README for upgrade procedure)
+- `fastmcp==4.2.1` - FastMCP SDK (pinned for stability; see README for upgrade procedure)
 - `httpx>=0.27.0` - Async HTTP client
 - `Pillow>=10.0.0` - Image processing (for screenshots)
 - `aiohttp>=3.9.0` - Dashboard web server and WebSocket
 
-**FastMCP version policy:** The FastMCP dependency is pinned to avoid breaking changes. The server includes cross-version compatibility handling for tool/resource registration. Upgrade carefully and run `pytest tests/test_server_contract.py` to verify.
+**FastMCP version policy:** The FastMCP dependency is pinned to avoid breaking changes. Dashboard tracking uses FastMCP middleware (`DashboardTrackingMiddleware`), not tool patching. Upgrade carefully and run `pytest tests/test_server_contract.py` to verify.
 
 ## Web Dashboard
 
