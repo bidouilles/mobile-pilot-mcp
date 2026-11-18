@@ -6,6 +6,21 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+def _as_bool(value: Any, default: bool = True) -> bool:
+    """Coerce a WDA flag to bool.
+
+    WDA's JSON source sends flags as the strings "1"/"0", its XML source as
+    "true"/"false"; a plain truthiness test treats "0" as True.
+    """
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes")
+    return bool(value)
+
+
 @dataclass
 class UIElement:
     """Represents a UI element in the accessibility tree."""
@@ -109,66 +124,71 @@ class UITreeParser:
         """Parse JSON hierarchy from WDA."""
         flat_list: list[UIElement] = []
 
-        def parse_element(elem_data: dict[str, Any]) -> UIElement | None:
-            # Extract element properties
+        def parse_element(elem_data: dict[str, Any]) -> list[UIElement]:
+            """Return the element, or its kept descendants when it is filtered out."""
             elem_type = elem_data.get("type", "Unknown")
             label = elem_data.get("label")
             name = elem_data.get("name")
             value = elem_data.get("value")
-            identifier = elem_data.get("identifier")
-            enabled = elem_data.get("isEnabled", elem_data.get("enabled", True))
-            visible = elem_data.get("isVisible", elem_data.get("visible", True))
-            accessible = elem_data.get("isAccessible", elem_data.get("accessible", True))
+            # WDA's JSON source names the accessibility identifier "rawIdentifier".
+            identifier = elem_data.get("rawIdentifier") or elem_data.get("identifier")
+            enabled = _as_bool(elem_data.get("isEnabled", elem_data.get("enabled")))
+            visible = _as_bool(elem_data.get("isVisible", elem_data.get("visible")))
+            accessible = _as_bool(elem_data.get("isAccessible", elem_data.get("accessible")))
 
-            # Get bounds
             rect = elem_data.get("rect", {})
             x = int(rect.get("x", 0))
             y = int(rect.get("y", 0))
             width = int(rect.get("width", 0))
             height = int(rect.get("height", 0))
 
-            # Filter based on visibility
-            if only_visible and not visible:
-                return None
-
-            # Filter based on interactability
-            if only_interactable:
-                if not enabled or not accessible:
-                    return None
-                # Skip non-interactive types
+            keep = not (only_visible and not visible)
+            if keep and only_interactable:
                 non_interactive = {"Other", "StaticText", "Group", "Cell"}
-                if elem_type in non_interactive and not label and not name:
-                    return None
+                if not enabled or not accessible:
+                    keep = False
+                elif elem_type in non_interactive and not label and not name:
+                    keep = False
 
-            # Create element
-            element = UIElement(
-                index=self._index_counter,
-                element_type=elem_type,
-                label=label,
-                name=name,
-                value=value,
-                identifier=identifier,
-                enabled=enabled,
-                visible=visible,
-                accessible=accessible,
-                x=x,
-                y=y,
-                width=width,
-                height=height,
-            )
-            self._index_counter += 1
-            flat_list.append(element)
+            element: UIElement | None = None
+            if keep:
+                element = UIElement(
+                    index=self._index_counter,
+                    element_type=elem_type,
+                    label=label,
+                    name=name,
+                    value=value,
+                    identifier=identifier,
+                    enabled=enabled,
+                    visible=visible,
+                    accessible=accessible,
+                    x=x,
+                    y=y,
+                    width=width,
+                    height=height,
+                )
+                self._index_counter += 1
+                flat_list.append(element)
 
-            # Parse children
-            children_data = elem_data.get("children", [])
-            for child_data in children_data:
-                child = parse_element(child_data)
-                if child:
-                    element.children.append(child)
+            # A filtered-out container can still hold elements worth keeping
+            # (WDA reports many containers as not visible), so hoist them.
+            kept_children: list[UIElement] = []
+            for child_data in elem_data.get("children", []):
+                kept_children.extend(parse_element(child_data))
 
-            return element
+            if element is None:
+                return kept_children
+            element.children.extend(kept_children)
+            return [element]
 
-        root = parse_element(data)
+        roots = parse_element(data)
+        if not roots:
+            return None, flat_list
+        if len(roots) == 1:
+            return roots[0], flat_list
+
+        # The root itself was filtered out: keep one root so callers get a tree.
+        root = UIElement(index=-1, element_type=str(data.get("type", "Unknown")), children=roots)
         return root, flat_list
 
     def _parse_xml(
@@ -189,9 +209,9 @@ class UITreeParser:
             name = elem.get("name")
             value = elem.get("value")
             identifier = elem.get("accessibilityIdentifier") or elem.get("identifier")
-            enabled = elem.get("enabled", "true").lower() == "true"
-            visible = elem.get("visible", "true").lower() == "true"
-            accessible = elem.get("accessible", "true").lower() == "true"
+            enabled = _as_bool(elem.get("enabled"))
+            visible = _as_bool(elem.get("visible"))
+            accessible = _as_bool(elem.get("accessible"))
 
             # Get bounds
             x = int(float(elem.get("x", 0)))
@@ -264,7 +284,10 @@ class UITreeParser:
             text = elem.display_text
             text_part = f' "{text}"' if text else ""
 
-            if verbose:
+            if elem.index < 0:
+                # Placeholder root for a filtered-out root: it has no tappable index.
+                lines.append(f"{indent}{elem.element_type}{text_part}")
+            elif verbose:
                 bounds = f" [{elem.x},{elem.y} {elem.width}x{elem.height}]"
                 lines.append(f"{indent}[{elem.index}] {elem.element_type}{text_part}{bounds}")
             else:
