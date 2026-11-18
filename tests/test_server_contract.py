@@ -11,11 +11,8 @@ def test_server_compat_export_points_to_mcp() -> None:
 
 
 def test_fastmcp_tools_registered() -> None:
-    tools = asyncio.run(server_module.mcp.get_tools())
-    if isinstance(tools, dict):
-        tool_names = set(tools.keys())
-    else:
-        tool_names = {tool.name for tool in tools}
+    tools = asyncio.run(server_module.mcp.list_tools())
+    tool_names = {tool.name for tool in tools}
 
     expected_tools = {
         "list_devices",
@@ -40,11 +37,39 @@ def test_fastmcp_tools_registered() -> None:
 
 
 def test_fastmcp_resources_registered() -> None:
-    resources = asyncio.run(server_module.mcp.get_resources())
-    if isinstance(resources, dict):
-        resource_keys = set(resources.keys())
-    else:
-        resource_keys = {resource.key for resource in resources}
+    resources = asyncio.run(server_module.mcp.list_resources())
+    resource_keys = {str(resource.uri) for resource in resources}
 
     assert "mobile-pilot://api-reference" in resource_keys
     assert "mobile-pilot://automation-guide" in resource_keys
+
+
+def test_dashboard_middleware_tracks_tool_calls(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    tracked: list[tuple] = []
+    monkeypatch.setattr(server_module, "_track_tool_call", lambda name, args: (name, args))
+    monkeypatch.setattr(
+        server_module,
+        "_complete_tool_call",
+        lambda call, result=None, error=None: tracked.append((call, result, error)),
+    )
+    middleware = server_module.DashboardTrackingMiddleware()
+    context = SimpleNamespace(message=SimpleNamespace(name="tap", arguments={"x": 1}))
+
+    async def ok(_context):
+        return SimpleNamespace(content=[SimpleNamespace(text="Tapped")])
+
+    async def boom(_context):
+        raise RuntimeError("no WDA")
+
+    asyncio.run(middleware.on_call_tool(context, ok))
+    try:
+        asyncio.run(middleware.on_call_tool(context, boom))
+    except RuntimeError:
+        pass
+
+    assert tracked == [
+        (("tap", {"x": 1}), "Tapped", None),
+        (("tap", {"x": 1}), None, "no WDA"),
+    ]

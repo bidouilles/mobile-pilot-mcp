@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "Mobile Pilot MCP - your AI co-pilot for mobile simulators. iOS today, Android coming soon."
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "MobAI", email = "hello@mobai.run" }
 ]
@@ -19,13 +19,13 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [
-    "fastmcp==2.14.4",
+    "fastmcp==4.2.1",
     "httpx>=0.27.0",
     "Pillow>=10.0.0",
     "aiohttp>=3.9.0",
@@ -46,7 +46,7 @@ packages = ["src/mobile_pilot_mcp"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]

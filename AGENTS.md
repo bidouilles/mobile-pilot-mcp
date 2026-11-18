@@ -19,7 +19,7 @@ Operational scripts are in `scripts/` (`setup.sh`, `start_wda.sh`, `run_server.s
 - `ruff check .`: run lint checks.
 
 ## Coding Style & Naming Conventions
-- Target runtime: Python 3.10+.
+- Target runtime: Python 3.11+.
 - Follow Ruff settings from `pyproject.toml` (`line-length = 100`, rules `E,F,I,W`).
 - Use type hints and `from __future__ import annotations` for new modules.
 - Naming: `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_CASE` for constants.
