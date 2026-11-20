@@ -22,7 +22,12 @@ Optional one-step setup:
 
 ## Start WebDriverAgent
 
-WDA must be running for UI automation.
+WDA must be running for UI automation. `start_bridge` starts it when nothing
+answers on a local host (`127.0.0.1` or `localhost`): it boots the simulator,
+runs `xcodebuild ... test` from `WDA_PATH` in the background, and waits up to
+`WDA_START_TIMEOUT` seconds. The log goes to `/tmp/mobile-pilot-mcp/wda/`.
+The server stops the WDA it started when it exits. A remote `WDA_HOST` is never
+started. To start WDA yourself, use the script below and set `WDA_AUTO_START=false`.
 
 Clone WebDriverAgent (one-time). It lives in the `appium-ios` monorepo; the old
 `appium/WebDriverAgent` repo stopped at v16.15.3. Tested with WDA 17.0.11.
@@ -114,6 +119,9 @@ Connecting the Dart MCP server to a running app needs a **DTD URI** (Dart Toolin
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `WDA_HOST` | `127.0.0.1` | WebDriverAgent host |
+| `WDA_PATH` | `~/appium-ios/packages/webdriveragent` | WebDriverAgent project, used by `start_bridge` and `scripts/start_wda.sh` |
+| `WDA_AUTO_START` | `true` | Let `start_bridge` start WDA when it is not running on a local host |
+| `WDA_START_TIMEOUT` | `300` | Seconds `start_bridge` waits for a WDA it started (a first build takes a few minutes) |
 | `WDA_PORT` | `8100` | Port used by `scripts/start_wda.sh` for launching WDA. For MCP calls, pass `port` to `start_bridge`. |
 | `WDA_FAST_GESTURES` | `false` | Skip WDA's wait for animations after each gesture (often faster; a UI tree read right after may catch an animation midway). `start_bridge fast_gestures=...` overrides it per bridge. |
 | `DASHBOARD_PORT` | `8200` | Dashboard web port |

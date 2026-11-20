@@ -2,9 +2,10 @@
 
 ## Cannot connect to WebDriverAgent
 
-1. Start WDA: `./scripts/start_wda.sh <UDID>`
-2. Check WDA output for actual host/port
-3. Set `WDA_HOST` when WDA is not on `127.0.0.1`
+1. Call `start_bridge` again: it restarts WDA on a local host
+2. If it could not start WDA, read the log it names (`/tmp/mobile-pilot-mcp/wda/wda-<UDID>.log`); signing and Xcode version errors show up there
+3. Check that `WDA_PATH` points at `packages/webdriveragent` in your `appium-ios` clone
+4. Set `WDA_HOST` when WDA is not on `127.0.0.1` (a remote WDA is never started for you)
 
 ## Codex MCP startup fails (`initialize response` / handshake closed)
 
@@ -24,7 +25,7 @@ Try:
 ## WDA unknown error or taps not working
 
 1. Reset session: `reset_session device_id="..."`
-2. Restart WDA
+2. Restart WDA: stop it, then call `start_bridge`
 3. Verify tap coordinates are in bounds
 
 ## Screenshots missing

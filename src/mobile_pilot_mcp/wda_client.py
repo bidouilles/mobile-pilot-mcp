@@ -102,7 +102,7 @@ class WDAClient:
         except httpx.ConnectError as e:
             raise WDAError(
                 f"Cannot connect to WebDriverAgent at {self.base_url}. "
-                "Make sure WDA is running on the simulator."
+                "Call start_bridge to start or reconnect it."
             ) from e
         except httpx.TimeoutException as e:
             raise WDAError(f"Request timed out: {path}") from e
