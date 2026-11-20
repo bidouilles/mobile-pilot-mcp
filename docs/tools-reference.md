@@ -8,7 +8,7 @@
 | `get_device` | Get device info by UDID |
 | `boot_simulator` | Boot a simulator |
 | `shutdown_simulator` | Shutdown a simulator |
-| `start_bridge` | Connect to WebDriverAgent and create session |
+| `start_bridge` | Connect to WebDriverAgent and create session; `fast_gestures=true` skips the post-gesture animation wait |
 | `reset_session` | Reset WDA session |
 
 ## UI Automation

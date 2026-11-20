@@ -321,6 +321,7 @@ The server exposes two resources for in-context reference:
 13. **Use `start_recording`/`stop_recording`** to capture interaction videos
 14. **Use `simulate_biometrics`** to test Touch ID/Face ID flows
 15. **Use `pinch`** for map/image zoom testing (scale > 1 = zoom in, < 1 = zoom out)
+16. **Use `start_bridge fast_gestures=true`** (or `WDA_FAST_GESTURES=true`) for faster taps and swipes; wait for elements before reading the tree, since animations may still be running
 
 ## Dependencies
 
@@ -367,4 +368,4 @@ The server includes a real-time dashboard at `http://localhost:8200` with:
 ## Security & Configuration
 
 - Do not commit simulator artifacts, logs with secrets, or local IP-specific credentials.
-- Use environment variables (`WDA_HOST`, `WDA_PATH`, `LOG_LEVEL`, `DASHBOARD_PORT`, `DASHBOARD_AUTO_OPEN`) instead of hardcoding local machine values.
+- Use environment variables (`WDA_HOST`, `WDA_PATH`, `WDA_FAST_GESTURES`, `LOG_LEVEL`, `DASHBOARD_PORT`, `DASHBOARD_AUTO_OPEN`) instead of hardcoding local machine values.
