@@ -15,15 +15,17 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from urllib.parse import urlsplit
 
 from fastmcp import FastMCP
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from pydantic import Field
 
 from .dashboard import DASHBOARD_PORT, dashboard_state, start_dashboard, stop_dashboard
-from .simulator import SimulatorManager
+from .simulator import SimulatorError, SimulatorManager
 from .ui_tree import UITreeParser, find_element_by_predicate
 from .wda_client import WDAClient, WDAError
+from .wda_launcher import WDA_AUTO_START, WDALauncher, WDALaunchError, is_local_host
 
 # Configure logging
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "DEBUG").upper()
@@ -50,6 +52,7 @@ DEFAULT_WDA_PORT = 8100
 
 # Global state
 simulator_manager = SimulatorManager()
+wda_launcher = WDALauncher()
 wda_clients: dict[str, WDAClient] = {}
 _last_ui_elements: dict[str, list] = {}
 _recording_paths: dict[str, Path] = {}
@@ -227,6 +230,12 @@ async def lifespan(mcp: FastMCP):
         except Exception as exc:
             logger.debug("Error stopping recordings: %s", exc)
 
+        # Stop the WebDriverAgent processes start_bridge started.
+        try:
+            await wda_launcher.stop_all()
+        except Exception as exc:
+            logger.debug("Error stopping WebDriverAgent: %s", exc)
+
         # Ensure HTTP clients are released when the server exits.
         unique_clients = {id(client): client for client in wda_clients.values()}.values()
         for client in unique_clients:
@@ -325,12 +334,26 @@ async def start_bridge(
         ),
     ] = None,
 ) -> str:
-    """Check WebDriverAgent connection (WDA must be running separately via xcodebuild)."""
+    """Connect to WebDriverAgent and create a session.
+
+    When WDA does not answer on a local host, it is started (and the simulator
+    booted) first; set WDA_AUTO_START=false to turn this off. Call it again
+    whenever tools report that WDA cannot be reached.
+    """
     previous = wda_clients.get(device_id)
     client = get_wda_client(device_id, port, host)
     address = client.base_url.removeprefix("http://")
+    started = ""
+    launch_error = ""
 
     healthy = await client.health_check()
+    if not healthy and WDA_AUTO_START and is_local_host(urlsplit(client.base_url).hostname or ""):
+        try:
+            started = await _start_wda(device_id, client)
+            healthy = True
+        except (WDALaunchError, SimulatorError) as exc:
+            launch_error = str(exc)
+
     if not healthy:
         # Keep a failed attempt from replacing the bridge the device already had.
         if previous is not None:
@@ -356,20 +379,38 @@ async def start_bridge(
             })
 
         return (
-            f"WebDriverAgent is running at {address}. "
+            f"{started}WebDriverAgent is running at {address}. "
             f"Session created (ID: {client.session_id}). {speed}"
         )
-    else:
+    if launch_error:
         return (
-            f"WebDriverAgent is not responding at {address}.\n\n"
-            "To start WDA, run:\n"
-            "  xcodebuild -project WebDriverAgent.xcodeproj "
-            "-scheme WebDriverAgentRunner -destination "
-            f"'platform=iOS Simulator,id={device_id}' test\n\n"
-            "Or use a tool like appium-webdriveragent.\n\n"
-            "If WDA is running on a different host, set WDA_HOST environment variable\n"
-            "or pass the host parameter."
+            f"WebDriverAgent is not responding at {address} and could not be started.\n\n"
+            f"{launch_error}"
         )
+    return (
+        f"WebDriverAgent is not responding at {address}.\n\n"
+        "Start it with `scripts/start_wda.sh <UDID>`, or leave WDA_AUTO_START on and use a "
+        "local host so start_bridge starts it.\n\n"
+        "If WDA is running on a different host, set the WDA_HOST environment variable "
+        "or pass the host parameter."
+    )
+
+
+async def _start_wda(device_id: str, client: WDAClient) -> str:
+    """Boot the simulator if needed, start WDA on it and wait until it answers."""
+    devices = await simulator_manager.list_devices(refresh=True)
+    device = next((d for d in devices if d.udid == device_id), None)
+    if device is None:
+        raise SimulatorError(f"Device not found: {device_id}")
+    if not device.is_booted:
+        await simulator_manager.boot(device_id)
+        await simulator_manager.open_simulator_app()
+
+    port = urlsplit(client.base_url).port or DEFAULT_WDA_PORT
+    log_path = await wda_launcher.start(device_id, port, client.health_check)
+    # A session id from before the restart is no longer valid.
+    client.session_id = None
+    return f"Started WebDriverAgent (log: {log_path}). "
 
 
 # === Screenshot ===
@@ -1152,7 +1193,7 @@ API_REFERENCE = """# Mobile Pilot MCP API Reference
 | get_device | Get device info by UDID |
 | boot_simulator | Boot a simulator |
 | shutdown_simulator | Shutdown a simulator |
-| start_bridge | Check/connect to WebDriverAgent |
+| start_bridge | Connect to WebDriverAgent, starting it if needed |
 
 ## UI Automation
 
@@ -1214,12 +1255,9 @@ API_REFERENCE = """# Mobile Pilot MCP API Reference
 ## Prerequisites
 
 1. **Xcode Command Line Tools**: `xcode-select --install`
-2. **WebDriverAgent**: Required for most automation. Start with:
-   ```
-   xcodebuild -project WebDriverAgent.xcodeproj \\
-     -scheme WebDriverAgentRunner \\
-     -destination 'platform=iOS Simulator,id=<UDID>' test
-   ```
+2. **WebDriverAgent**: Required for most automation. `start_bridge` starts it
+   from `WDA_PATH` (default `~/appium-ios/packages/webdriveragent`) when it is
+   not running locally; call `start_bridge` again if it stops.
 
 ## Common Bundle IDs
 
@@ -1243,7 +1281,7 @@ AUTOMATION_GUIDE = """# Mobile Pilot MCP Automation Guide
 
 2. **Start WebDriverAgent** (required for UI automation)
    ```
-   start_bridge → check WDA status
+   start_bridge → connect, starting WDA if needed (first build: a few minutes)
    start_bridge fast_gestures=true → no wait for animations after gestures
    ```
 

@@ -28,13 +28,14 @@ This Python MCP server enables AI assistants to automate iOS Simulators via WebD
 - **`server.py`**: MCP server entry point, tool definitions and handlers
 - **`wda_client.py`**: HTTP client for WebDriverAgent API (W3C WebDriver + WDA extensions)
 - **`simulator.py`**: iOS Simulator management via `xcrun simctl`
+- **`wda_launcher.py`**: Starts and stops WebDriverAgent (`xcodebuild test`) for `start_bridge`
 - **`ui_tree.py`**: Parses WDA accessibility hierarchy into usable format
 - **`dashboard.py`**: Web dashboard server (Python handlers, WebSocket, state management)
 - **`templates/dashboard.html`**: Dashboard UI (HTML/CSS/JS) - separated for cleaner code
 
 ## WebDriverAgent
 
-WDA lives in the `appium-ios` monorepo and defaults to `~/appium-ios/packages/webdriveragent` (falls back to the old `~/WebDriverAgent` when only that exists). Override with the `WDA_PATH` environment variable. It must be running on the simulator for UI automation to work.
+WDA lives in the `appium-ios` monorepo and defaults to `~/appium-ios/packages/webdriveragent` (falls back to the old `~/WebDriverAgent` when only that exists). Override with the `WDA_PATH` environment variable. It must be running on the simulator for UI automation to work. `start_bridge` starts it (`wda_launcher.py`) when nothing answers on a local host; `WDA_AUTO_START=false` turns that off.
 
 ### Starting WDA
 
@@ -155,7 +156,7 @@ Recent history follows Conventional Commit types, often with an emoji prefix (ex
 ### Common WDA Errors
 
 1. **Session expired**: Use `reset_session` tool or call `delete_session()` + `create_session()`
-2. **Connection refused**: WDA not running, check with `health_check()`
+2. **Connection refused**: WDA not running; `start_bridge` starts it again (log in `/tmp/mobile-pilot-mcp/wda/`)
 3. **Unknown error**: Usually means WDA returned an error in unexpected format - check logs
 
 ### Error Response Formats
@@ -306,7 +307,7 @@ The server exposes two resources for in-context reference:
 
 ## Tips for AI Assistants
 
-1. **Always call `start_bridge` first** before any UI automation
+1. **Always call `start_bridge` first** before any UI automation; it starts WDA if needed, and calling it again recovers after WDA or the simulator stops
 2. **Get UI tree** before tapping to see available elements
 3. **Use predicates** for robust element selection (vs hardcoded indices)
 4. **Reset session** if getting repeated errors
@@ -360,6 +361,7 @@ The server includes a real-time dashboard at `http://localhost:8200` with:
 - Screenshots: `/tmp/mobile-pilot-mcp/screenshots/`
 - Recordings: `/tmp/mobile-pilot-mcp/recordings/`
 - WDA Project: `~/appium-ios/packages/webdriveragent/` (override with `WDA_PATH` env var)
+- WDA logs (when started by `start_bridge`): `/tmp/mobile-pilot-mcp/wda/`
 - Simulator data: `~/Library/Developer/CoreSimulator/Devices/<UDID>/`
 - Docs: `docs/` (setup, tools reference, troubleshooting)
 - Tests: `tests/test_server_contract.py` (FastMCP contract tests)
@@ -368,4 +370,4 @@ The server includes a real-time dashboard at `http://localhost:8200` with:
 ## Security & Configuration
 
 - Do not commit simulator artifacts, logs with secrets, or local IP-specific credentials.
-- Use environment variables (`WDA_HOST`, `WDA_PATH`, `WDA_FAST_GESTURES`, `LOG_LEVEL`, `DASHBOARD_PORT`, `DASHBOARD_AUTO_OPEN`) instead of hardcoding local machine values.
+- Use environment variables (`WDA_HOST`, `WDA_PATH`, `WDA_AUTO_START`, `WDA_START_TIMEOUT`, `WDA_FAST_GESTURES`, `LOG_LEVEL`, `DASHBOARD_PORT`, `DASHBOARD_AUTO_OPEN`) instead of hardcoding local machine values.

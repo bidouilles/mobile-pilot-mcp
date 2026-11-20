@@ -25,7 +25,7 @@ UI automation needs [WebDriverAgent](https://github.com/appium/appium-ios/tree/m
 git clone https://github.com/appium/appium-ios.git ~/appium-ios
 ```
 
-`./scripts/start_wda.sh` builds and runs it from `~/appium-ios/packages/webdriveragent`; set `WDA_PATH` if you cloned it elsewhere.
+`start_bridge` starts it for you: when nothing answers on a local host, it boots the simulator and runs WDA from `~/appium-ios/packages/webdriveragent` (set `WDA_PATH` if you cloned it elsewhere). The first build takes a few minutes; later starts take under a minute. If WDA or the simulator stops, call `start_bridge` again. The server stops the WDA it started when it exits. To start WDA yourself instead, run `./scripts/start_wda.sh <UDID>` and set `WDA_AUTO_START=false`.
 
 | WDA version | Status |
 |-------------|--------|
@@ -38,7 +38,7 @@ WDA moved in late 2026: the old `appium/WebDriverAgent` repo stopped at v16.15.3
 
 ```bash
 python3 -m venv venv && source venv/bin/activate && pip install -e .
-./scripts/start_wda.sh <UDID>
+git clone https://github.com/appium/appium-ios.git ~/appium-ios
 claude mcp add mobile-pilot -- /path/to/mobile-pilot-mcp/venv/bin/mobile-pilot-mcp
 python scripts/test_install.py
 ```
