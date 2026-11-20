@@ -206,6 +206,19 @@ class WDAClient:
                 logger.warning(f"Error deleting session: {e}")
             self.session_id = None
 
+    async def update_settings(self, settings: dict[str, Any]) -> dict[str, Any]:
+        """Change WDA settings (they apply to the whole WDA process, not one session).
+
+        Returns:
+            All settings after the change.
+        """
+        session_id = await self._ensure_session()
+        data = await self._request(
+            "POST", f"/session/{session_id}/appium/settings", json={"settings": settings}
+        )
+        value = data.get("value")
+        return value if isinstance(value, dict) else {}
+
     async def _ensure_session(self) -> str:
         """Ensure we have an active session."""
         if not self.session_id:

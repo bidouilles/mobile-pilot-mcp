@@ -115,6 +115,7 @@ Connecting the Dart MCP server to a running app needs a **DTD URI** (Dart Toolin
 |----------|---------|-------------|
 | `WDA_HOST` | `127.0.0.1` | WebDriverAgent host |
 | `WDA_PORT` | `8100` | Port used by `scripts/start_wda.sh` for launching WDA. For MCP calls, pass `port` to `start_bridge`. |
+| `WDA_FAST_GESTURES` | `false` | Skip WDA's wait for animations after each gesture (often faster; a UI tree read right after may catch an animation midway). `start_bridge fast_gestures=...` overrides it per bridge. |
 | `DASHBOARD_PORT` | `8200` | Dashboard web port |
 | `DASHBOARD_AUTO_OPEN` | `true` | Auto-open dashboard browser tab |
 

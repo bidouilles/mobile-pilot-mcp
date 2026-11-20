@@ -57,6 +57,12 @@ _recording_paths: dict[str, Path] = {}
 # WDA host configuration
 WDA_HOST = os.environ.get("WDA_HOST", "127.0.0.1")
 
+# After each gesture WDA waits up to `animationCoolOffTimeout` seconds for the
+# app to stop animating. Setting it to 0 makes gestures about twice as fast, but
+# the UI tree can then be read while an animation is still running.
+WDA_FAST_GESTURES = os.environ.get("WDA_FAST_GESTURES", "false").lower() in ("true", "1", "yes")
+WDA_DEFAULT_ANIMATION_COOL_OFF = 2.0  # WDA's own default, in seconds
+
 
 # === Helper Functions ===
 
@@ -83,6 +89,23 @@ def get_wda_client(
     wda_clients[device_id] = wda_clients[key]
 
     return wda_clients[key]
+
+
+async def apply_gesture_speed(client: WDAClient, fast: bool) -> str:
+    """Set WDA's post-gesture animation wait and describe the result.
+
+    The setting is global to the WDA process, so it is always set explicitly:
+    a WDA left in fast mode by an earlier bridge goes back to the default.
+    """
+    timeout = 0.0 if fast else WDA_DEFAULT_ANIMATION_COOL_OFF
+    try:
+        await client.update_settings({"animationCoolOffTimeout": timeout})
+    except WDAError as exc:
+        logger.warning("Could not set animationCoolOffTimeout: %s", exc)
+        return f"Fast gestures: could not be set ({exc})."
+    if fast:
+        return "Fast gestures: on (no wait for animations after gestures)."
+    return "Fast gestures: off."
 
 
 async def reset_wda_session(device_id: str) -> None:
@@ -291,6 +314,16 @@ async def start_bridge(
         str | None,
         Field(description="WDA host (default: the host already bridged, else WDA_HOST env var)"),
     ] = None,
+    fast_gestures: Annotated[
+        bool | None,
+        Field(
+            description=(
+                "Skip WDA's wait for animations to settle after each gesture: often faster, "
+                "but a UI tree read right after may catch an animation midway. "
+                "Default: WDA_FAST_GESTURES env var, else off."
+            )
+        ),
+    ] = None,
 ) -> str:
     """Check WebDriverAgent connection (WDA must be running separately via xcodebuild)."""
     previous = wda_clients.get(device_id)
@@ -307,6 +340,8 @@ async def start_bridge(
 
     if healthy:
         await client.create_session()
+        fast = WDA_FAST_GESTURES if fast_gestures is None else fast_gestures
+        speed = await apply_gesture_speed(client, fast)
 
         # Update dashboard with device info
         device = await simulator_manager.get_device(device_id)
@@ -322,7 +357,7 @@ async def start_bridge(
 
         return (
             f"WebDriverAgent is running at {address}. "
-            f"Session created (ID: {client.session_id})."
+            f"Session created (ID: {client.session_id}). {speed}"
         )
     else:
         return (
@@ -1209,6 +1244,7 @@ AUTOMATION_GUIDE = """# Mobile Pilot MCP Automation Guide
 2. **Start WebDriverAgent** (required for UI automation)
    ```
    start_bridge → check WDA status
+   start_bridge fast_gestures=true → no wait for animations after gestures
    ```
 
 3. **Get UI Tree**

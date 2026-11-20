@@ -190,6 +190,9 @@ class _FakeWDA:
     async def create_session(self) -> str:
         return "S"
 
+    async def update_settings(self, settings: dict) -> dict:
+        return settings
+
 
 def _start_bridge(**kwargs) -> str:
     async def run() -> str:
